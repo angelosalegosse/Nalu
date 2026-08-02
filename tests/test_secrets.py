@@ -53,9 +53,21 @@ def _git(*args: str) -> str:
 
 
 def _historique_complet() -> str:
+    """L'historique complet, PRIVE de ce fichier-ci.
+
+    Sans l'exclusion, le scan se détecte lui-même : les échantillons synthétiques
+    plus bas sont, une fois ce fichier commité, des formes de secrets présentes
+    dans l'historique. C'est arrivé — vert en local avant le commit, rouge en CI
+    juste après. Même précaution que l'étape `python[3]` de `ci.yml`, qui s'écrit
+    avec une classe de caractères pour ne pas se signaler elle-même.
+
+    Exclure ce seul fichier ne crée pas d'angle mort utile : c'est le fichier dont
+    la raison d'être est de contenir des chaînes de forme secrète, et il est relu
+    à chaque modification.
+    """
     if (RACINE / ".git" / "shallow").exists():
         pytest.skip("clone superficiel : aucun historique à scanner (CI : fetch-depth: 0)")
-    return _git("log", "--all", "-p")
+    return _git("log", "--all", "-p", "--", ".", ":(exclude)tests/test_secrets.py")
 
 
 def test_env_n_est_pas_suivi_par_git() -> None:

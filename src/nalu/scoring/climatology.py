@@ -36,9 +36,10 @@ import polars as pl
 
 from nalu.config import CONFIG, SWELL_HEIGHT
 from nalu.ingest.openmeteo import SNAPSHOT_DIR, verify_cache_integrity
+from nalu.paths import DATA
 from nalu.scoring.surf import charger_heures, marquer_surfabilite
 
-SCORES_DIR = Path("data/scores")
+SCORES_DIR = DATA / "scores"
 CLIMATOLOGIE_PATH = SCORES_DIR / "climatology.parquet"
 QUINZAINES_PATH = SCORES_DIR / "fortnights.parquet"
 

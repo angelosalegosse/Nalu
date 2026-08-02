@@ -30,8 +30,10 @@ from typing import Annotated, Self
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SPOTS_PATH = Path("data/spots.yaml")
-WINDOWS_PATH = Path("data/exposure_windows.yaml")
+from nalu.paths import DATA
+
+SPOTS_PATH = DATA / "spots.yaml"
+WINDOWS_PATH = DATA / "exposure_windows.yaml"
 
 Degre = Annotated[float, Field(ge=0.0, lt=360.0)]
 

@@ -52,6 +52,20 @@ SOMBRE = {
 }
 
 
+# Cadrage du planisphère. Les bornes de latitude coupent l'Antarctique et le haut de
+# l'Arctique, où le référentiel n'a aucun spot : les garder écraserait la bande utile.
+# Ces quatre valeurs servent DEUX fois — les axes de la figure et le rapport de forme
+# du CSS. Les dériver l'une de l'autre est le seul moyen qu'elles ne divergent pas.
+CARTE_LON = (-180.0, 180.0)
+CARTE_LAT = (-58.0, 74.0)
+CARTE_LON_SPAN = CARTE_LON[1] - CARTE_LON[0]
+CARTE_LAT_SPAN = CARTE_LAT[1] - CARTE_LAT[0]
+
+# Plafond de hauteur sur grand écran : au-delà, la carte pousse le tableau — qui est
+# le vrai sujet de la page — sous la ligne de flottaison.
+CARTE_HAUTEUR_MAX = 460
+
+
 def palette() -> dict:
     theme = getattr(getattr(st, "context", None), "theme", None)
     return SOMBRE if getattr(theme, "type", "light") == "dark" else CLAIR
@@ -102,10 +116,18 @@ def carte(classement: pl.DataFrame, contour: pl.DataFrame, c: dict) -> go.Figure
                 "size": 13, "color": couverts["score"], "colorscale":
                     [[i / (len(c["rampe"]) - 1), h] for i, h in enumerate(c["rampe"])],
                 "cmin": 0, "cmax": 1, "line": {"color": c["surface"], "width": 2},
+                # Barre POSEE DANS la carte, sur le Pacifique sud qui est vide de
+                # spots, et non à droite du tracé. À droite, elle vit hors de la zone
+                # de dessin : avec une marge nulle elle sort du cadre et son titre est
+                # coupé — vu à 1440 px. Ici elle ne coûte aucune largeur de mise en
+                # page, ce qui compte d'autant plus sur un écran étroit.
                 "colorbar": {
-                    "title": {"text": "Score", "font": {"color": c["encre_2"], "size": 12}},
-                    "tickfont": {"color": c["encre_muette"], "size": 11},
-                    "outlinewidth": 0, "thickness": 12, "len": 0.7,
+                    "title": {"text": "Score", "font": {"color": c["encre_2"], "size": 11}},
+                    "tickfont": {"color": c["encre_muette"], "size": 10},
+                    "outlinewidth": 0, "thickness": 9, "len": 0.34,
+                    "orientation": "h", "x": 0.63, "y": 0.03,
+                    "xanchor": "left", "yanchor": "bottom",
+                    "tickvals": [0, 0.5, 1],
                 },
             },
             text=couverts["name"], customdata=couverts.select("score", "price_eur").to_numpy(),
@@ -116,9 +138,12 @@ def carte(classement: pl.DataFrame, contour: pl.DataFrame, c: dict) -> go.Figure
     )
     figure.update_layout(
         paper_bgcolor=c["surface"], plot_bgcolor=c["surface"],
-        margin={"l": 0, "r": 0, "t": 0, "b": 0}, height=340,
-        xaxis={"visible": False, "range": [-180, 180]},
-        yaxis={"visible": False, "range": [-58, 74], "scaleanchor": "x", "scaleratio": 1},
+        margin={"l": 0, "r": 0, "t": 0, "b": 0}, height=CARTE_HAUTEUR_MAX,
+        xaxis={"visible": False, "range": list(CARTE_LON)},
+        yaxis={
+            "visible": False, "range": list(CARTE_LAT),
+            "scaleanchor": "x", "scaleratio": 1,
+        },
         hoverlabel={"bgcolor": c["surface"], "font": {"color": c["encre"]}},
     )
     return figure
@@ -177,7 +202,25 @@ def main() -> None:
     # est exactement celui qu'ils vérifient.
     classement = classer(tableau, mois, alpha)
 
-    st.plotly_chart(carte(classement, contour, c), use_container_width=True)
+    # Le planisphère verrouille ses proportions (`scaleanchor`) pour ne pas déformer
+    # les continents. Une hauteur fixe entre alors en conflit avec cette contrainte :
+    # sur un écran étroit, la carte est bornée par la LARGEUR et ne remplit plus la
+    # hauteur réservée. Mesuré à 390 px : carte de 143 px dans une boîte de 340,
+    # soit ~200 px de vide entre la carte et le tableau. La hauteur doit donc suivre
+    # la largeur, ce que seul le CSS sait faire — Python ne connaît pas la fenêtre.
+    st.html(
+        f"""<style>
+        .st-key-planisphere [data-testid="stPlotlyChart"],
+        .st-key-planisphere .js-plotly-plot,
+        .st-key-planisphere .plot-container {{
+            height: auto !important;
+            aspect-ratio: {CARTE_LON_SPAN} / {CARTE_LAT_SPAN};
+            max-height: {CARTE_HAUTEUR_MAX}px;
+        }}
+        </style>"""
+    )
+    with st.container(key="planisphere"):
+        st.plotly_chart(carte(classement, contour, c), use_container_width=True)
 
     affichage = classement.select(
         "rang",

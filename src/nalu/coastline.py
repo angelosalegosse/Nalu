@@ -25,6 +25,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from nalu.net import use_system_trust_store
+from nalu.paths import DATA
 
 # Miroir GitHub officiel du projet Natural Earth. Le site naturalearthdata.com sert
 # des ZIP de shapefiles, qui demanderaient un lecteur GDAL ; le miroir expose le
@@ -32,7 +33,7 @@ from nalu.net import use_system_trust_store
 BASE_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson"
 JEUX = ("ne_10m_land", "ne_10m_minor_islands")
 
-CACHE_DIR = Path("data/raw/natural_earth")
+CACHE_DIR = DATA / "raw" / "natural_earth"
 
 
 def download(jeu: str, cache_dir: Path = CACHE_DIR) -> Path:
@@ -57,7 +58,7 @@ def download(jeu: str, cache_dir: Path = CACHE_DIR) -> Path:
     return cible
 
 
-CONTOUR_PATH = Path("data/world_outline.parquet")
+CONTOUR_PATH = DATA / "world_outline.parquet"
 CONTOUR_JEU = "ne_110m_land"
 CONTOUR_TOLERANCE_DEG = 0.35
 """Simplification de Douglas-Peucker du trait de côte d'illustration. À 0,35 degré le

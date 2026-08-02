@@ -1,0 +1,465 @@
+# Référentiel des spots — CURÉ À LA MAIN.
+#
+# ─── Provenance ───────────────────────────────────────────────────────────────
+#
+# `source` porte, pour chaque spot, la page d'où viennent le secteur de vent
+# offshore, le type de fond et le régime de houle. La source primaire est le guide
+# de spot de surf-forecast.com, retenu parce qu'il couvre les 20 spots avec la même
+# grille de lecture — ce qui rend les valeurs comparables entre elles.
+#
+# `confidence` dit ce qu'on sait vraiment :
+#   high    le seuil est documenté finement pour ce spot précis ;
+#   medium  le secteur de vent et le fond sont sourcés, les seuils de hauteur et de
+#           période sont une lecture experte de ce que la source décrit ;
+#   low     la source elle-même décrit un spot irrégulier, les seuils sont indicatifs.
+#
+# ─── Coordonnées ──────────────────────────────────────────────────────────────
+#
+# Elles visent le pic, donc légèrement au large du trait de côte. Natural Earth 10m
+# dessine la côte au large du pic sur 12 des 20 spots : la coordonnée a alors été
+# ressortie perpendiculairement au trait, du plus court chemin, plus 800 m de marge.
+# Déplacement maximal appliqué : 1,9 km (Supertubos). Toutes restent à moins de 2 km
+# du spot réel.
+#
+# ─── Contrôle croisé des fenêtres calculées ───────────────────────────────────
+#
+# La fenêtre obtenue par lancer de rayons a été comparée à la direction de houle
+# idéale annoncée par la source, à la tolérance d'un secteur de boussole près.
+# **15 spots sur 20 concordent sans intervention.** Les 5 écarts ont deux causes,
+# toutes deux systématiques et toutes deux documentées spot par spot ci-dessous :
+#
+#   1. POINT BREAKS À ENROULEMENT (anchor-point, jeffreys-bay, chicama).
+#      La houle qui fait marcher un point break arrive du large sur un cap que le
+#      cap lui-même masque, puis réfracte autour de la pointe. Le lancer de rayons
+#      mesure l'exposition LOCALE ; ERA5 à 50 km donne une direction proche de celle
+#      du large. Les deux ne coïncident pas, et c'est le principe même d'un point.
+#
+#   2. OMBRE D'UNE ÎLE SOUS 500 KM (tres-palmas, tamarin-bay).
+#      Le seuil `open_ocean_km` mesure la longueur de fetch nécessaire à la formation
+#      d'une houle longue. L'utiliser comme critère de blocage fait déclarer fermé un
+#      secteur où une île se trouve à moins de 500 km, alors que la houle y passe.
+#
+# Ces 5 spots portent un `swell_dir_override`, chacun avec sa raison. La fenêtre y
+# est le secteur de 90 degrés centré sur la direction annoncée par la source.
+#
+# ─── Ce qui reste à valider ───────────────────────────────────────────────────
+#
+# 1. `hs_offshore_min` / `hs_offshore_max` sont des hauteurs significatives AU LARGE
+#    (ERA5, maille 50 km), pas des tailles de vague au pic. Aucune source publique ne
+#    les publie sous cette forme : elles sont déduites du seuil de fonctionnement
+#    décrit par la source. C'est l'hypothèse la plus fragile du référentiel, et c'est
+#    précisément ce que la validation externe de l'issue #9 doit mesurer.
+# 2. `wind_speed_max_offshore` / `_onshore` sont un DÉFAUT DE PROJET, pas une valeur
+#    par spot : 14 et 7 m/s partout, 16 et 8 à Klitmøller dont la houle est justement
+#    engendrée par le vent. Aucune source ne publie de tolérance au vent par spot.
+#    Le rapport de 2 entre les deux est la règle métier, elle est dans l'issue #1.
+# 3. `wind_dir_offshore_min` / `_max` sont un secteur de 90 degrés centré sur la
+#    direction offshore annoncée par la source, faute de secteur publié.
+#
+# ─── Ce qui n'est PAS dans ce fichier ─────────────────────────────────────────
+#
+# `swell_dir_min` / `swell_dir_max` sont CALCULÉS et vivent dans
+# data/exposure_windows.yaml, régénéré par `uv run python -m nalu.exposure`.
+
+# ─── Europe et Atlantique Nord ────────────────────────────────────────────────
+
+- id: hossegor-la-graviere
+  name: La Gravière
+  country: France
+  lat: 43.6687
+  lon: -1.4563
+  airport_iata: BIQ
+  swell_period_min: 10.0
+  hs_offshore_min: 1.0
+  hs_offshore_max: 3.0
+  wind_dir_offshore_min: 45.0
+  wind_dir_offshore_max: 135.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: beach
+  source: https://www.surf-forecast.com/breaks/La-Graviere
+  confidence: medium
+
+- id: mundaka
+  name: Mundaka
+  country: Espagne
+  lat: 43.4072
+  lon: -2.6975
+  airport_iata: BIO
+  swell_period_min: 11.0
+  hs_offshore_min: 1.2
+  hs_offshore_max: 3.5
+  wind_dir_offshore_min: 135.0
+  wind_dir_offshore_max: 225.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: beach
+  source: https://www.surf-forecast.com/breaks/Mundaka
+  confidence: medium
+
+- id: peniche-supertubos
+  name: Supertubos
+  country: Portugal
+  lat: 39.3355
+  lon: -9.3782
+  airport_iata: LIS
+  swell_period_min: 10.0
+  hs_offshore_min: 1.0
+  hs_offshore_max: 3.0
+  wind_dir_offshore_min: 0.0
+  wind_dir_offshore_max: 90.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: beach
+  source: https://www.surf-forecast.com/breaks/Supertubos
+  confidence: medium
+
+- id: thurso-east
+  name: Thurso East
+  country: Écosse
+  lat: 58.6100
+  lon: -3.5159
+  airport_iata: INV
+  swell_period_min: 9.0
+  hs_offshore_min: 1.2
+  hs_offshore_max: 3.5
+  wind_dir_offshore_min: 90.0
+  wind_dir_offshore_max: 180.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: point
+  source: https://www.surf-forecast.com/breaks/Thurso-East
+  confidence: medium
+
+- id: klitmoller
+  name: Klitmøller
+  country: Danemark
+  lat: 57.0397
+  lon: 8.4783
+  airport_iata: AAL
+  swell_period_min: 5.0
+  hs_offshore_min: 0.8
+  hs_offshore_max: 2.5
+  wind_dir_offshore_min: 157.5
+  wind_dir_offshore_max: 247.5
+  wind_speed_max_offshore: 16.0
+  wind_speed_max_onshore: 8.0
+  level: intermediate
+  bottom: beach
+  source: https://www.surf-forecast.com/breaks/Klitmoller
+  confidence: medium
+
+# ─── Afrique et Macaronésie ───────────────────────────────────────────────────
+
+- id: anchor-point
+  name: Anchor Point
+  country: Maroc
+  lat: 30.5442
+  lon: -9.7108
+  airport_iata: AGA
+  swell_period_min: 11.0
+  hs_offshore_min: 1.2
+  hs_offshore_max: 4.0
+  wind_dir_offshore_min: 0.0
+  wind_dir_offshore_max: 90.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: advanced
+  bottom: point
+  source: https://www.surf-forecast.com/breaks/La-Pointedes-Ancres
+  confidence: medium
+  swell_dir_override: [270.0, 0.0]
+  override_reason: >-
+    Point break à enroulement. Le lancer de rayons donne 252-294 : la pointe qui
+    fabrique la vague masque elle-même le secteur nord-ouest d'où vient la houle
+    annoncée par la source. La fenêtre retenue est le secteur de 90 degrés centré
+    sur cette direction (NW), qui est celle qu'ERA5 voit à 50 km au large.
+
+- id: ponta-preta
+  name: Ponta Preta
+  country: Cap-Vert
+  lat: 16.5983
+  lon: -22.9483
+  airport_iata: SID
+  swell_period_min: 10.0
+  hs_offshore_min: 1.0
+  hs_offshore_max: 3.5
+  wind_dir_offshore_min: 45.0
+  wind_dir_offshore_max: 135.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: advanced
+  bottom: point
+  source: https://www.surf-forecast.com/breaks/Ponta-Preta
+  confidence: medium
+
+- id: jeffreys-bay
+  name: Supertubes (Jeffreys Bay)
+  country: Afrique du Sud
+  lat: -34.0350
+  lon: 24.9280
+  airport_iata: PLZ
+  swell_period_min: 11.0
+  hs_offshore_min: 1.2
+  hs_offshore_max: 4.0
+  wind_dir_offshore_min: 202.5
+  wind_dir_offshore_max: 292.5
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: advanced
+  bottom: point
+  source: https://www.surf-forecast.com/breaks/Super-Tubes_1
+  confidence: medium
+  swell_dir_override: [180.0, 270.0]
+  override_reason: >-
+    Cas d'école de l'enroulement. Le lancer de rayons donne 94-180, ce qui est
+    géométriquement exact : la plage de Supertubes regarde vers l'est-sud-est, dans
+    la baie de St Francis. Mais la houle qui fait marcher le spot arrive du sud-ouest
+    et contourne le cap St Francis. C'est précisément ce contournement qui fait la
+    longueur de la vague, et c'est la direction du large qu'ERA5 restitue.
+
+# ─── Amériques ────────────────────────────────────────────────────────────────
+
+- id: banzai-pipeline
+  name: Banzai Pipeline
+  country: États-Unis (Hawaï)
+  lat: 21.6684
+  lon: -158.0606
+  airport_iata: HNL
+  swell_period_min: 12.0
+  hs_offshore_min: 2.0
+  hs_offshore_max: 5.0
+  wind_dir_offshore_min: 67.5
+  wind_dir_offshore_max: 157.5
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: reef
+  source: https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor
+  confidence: medium
+
+- id: zicatela
+  name: Playa Zicatela (Puerto Escondido)
+  country: Mexique
+  lat: 15.8504
+  lon: -97.0654
+  airport_iata: PXM
+  swell_period_min: 13.0
+  hs_offshore_min: 1.5
+  hs_offshore_max: 4.5
+  wind_dir_offshore_min: 0.0
+  wind_dir_offshore_max: 90.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: beach
+  source: https://www.surf-forecast.com/breaks/Zicatela
+  confidence: medium
+
+- id: chicama
+  name: Chicama
+  country: Pérou
+  lat: -7.6935
+  lon: -79.4474
+  airport_iata: TRU
+  swell_period_min: 12.0
+  hs_offshore_min: 1.0
+  hs_offshore_max: 3.0
+  wind_dir_offshore_min: 22.5
+  wind_dir_offshore_max: 112.5
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: intermediate
+  bottom: point
+  source: https://www.surf-forecast.com/breaks/Chicama
+  confidence: medium
+  swell_dir_override: [157.5, 247.5]
+  override_reason: >-
+    Point break à enroulement, sur la plus longue gauche du monde. Le lancer de
+    rayons donne 222-310, décalé d'une vingtaine de degrés vers le nord par rapport
+    à la houle sud-sud-ouest annoncée par la source : la pointe de Malabrigo masque
+    le sud, que la houle contourne sur plusieurs centaines de mètres.
+
+- id: tres-palmas
+  name: Tres Palmas (Rincón)
+  country: Porto Rico
+  lat: 18.3462
+  lon: -67.2719
+  airport_iata: SJU
+  swell_period_min: 13.0
+  hs_offshore_min: 2.0
+  hs_offshore_max: 5.0
+  wind_dir_offshore_min: 45.0
+  wind_dir_offshore_max: 135.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: reef
+  source: https://www.surf-forecast.com/breaks/Tres-Palmas
+  confidence: medium
+  swell_dir_override: [247.5, 337.5]
+  override_reason: >-
+    Ombre d'île sous le seuil de 500 km. Le lancer de rayons donne 172-242 parce
+    qu'Hispaniola et les Turks-et-Caïcos coupent les rayons ouest et nord-ouest à
+    moins de 500 km. Or c'est exactement de là qu'arrive la houle d'Atlantique Nord
+    qui réveille Tres Palmas en hiver. Le seuil `open_ocean_km` mesure la longueur de
+    fetch nécessaire à la formation d'une houle, pas la présence d'un obstacle.
+
+- id: playa-grande
+  name: Playa Grande
+  country: Costa Rica
+  lat: 10.3271
+  lon: -85.8551
+  airport_iata: LIR
+  swell_period_min: 11.0
+  hs_offshore_min: 0.8
+  hs_offshore_max: 2.5
+  wind_dir_offshore_min: 45.0
+  wind_dir_offshore_max: 135.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: intermediate
+  bottom: beach
+  source: https://www.surf-forecast.com/breaks/Playa-Grande_1
+  confidence: medium
+
+# ─── Asie et Pacifique ────────────────────────────────────────────────────────
+
+- id: uluwatu
+  name: Uluwatu
+  country: Indonésie
+  lat: -8.8149
+  lon: 115.0886
+  airport_iata: DPS
+  swell_period_min: 12.0
+  hs_offshore_min: 1.2
+  hs_offshore_max: 4.0
+  wind_dir_offshore_min: 90.0
+  wind_dir_offshore_max: 180.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: advanced
+  bottom: reef
+  source: https://www.surf-forecast.com/breaks/Uluwatu
+  confidence: high
+
+- id: sultans
+  name: Sultans
+  country: Maldives
+  lat: 4.2758
+  lon: 73.5583
+  airport_iata: MLE
+  swell_period_min: 13.0
+  hs_offshore_min: 1.0
+  hs_offshore_max: 3.0
+  wind_dir_offshore_min: 315.0
+  wind_dir_offshore_max: 45.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: advanced
+  bottom: reef
+  source: https://www.surf-forecast.com/breaks/Sultans
+  confidence: medium
+
+- id: cloudbreak
+  name: Cloudbreak
+  country: Fidji
+  lat: -17.8500
+  lon: 177.1900
+  airport_iata: NAN
+  swell_period_min: 12.0
+  hs_offshore_min: 1.5
+  hs_offshore_max: 4.5
+  wind_dir_offshore_min: 22.5
+  wind_dir_offshore_max: 112.5
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: reef
+  source: https://www.surf-forecast.com/breaks/Cloudbreak
+  confidence: medium
+
+- id: teahupoo
+  name: Teahupo'o
+  country: Polynésie française
+  lat: -17.8552
+  lon: -149.2709
+  airport_iata: PPT
+  swell_period_min: 13.0
+  hs_offshore_min: 1.5
+  hs_offshore_max: 4.5
+  wind_dir_offshore_min: 337.5
+  wind_dir_offshore_max: 67.5
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: expert
+  bottom: reef
+  source: https://www.surf-forecast.com/breaks/Teahupoo
+  confidence: medium
+
+# ─── Océan Indien et Australie ────────────────────────────────────────────────
+
+- id: arugam-bay
+  name: Arugam Bay
+  country: Sri Lanka
+  lat: 6.8361
+  lon: 81.8503
+  airport_iata: CMB
+  swell_period_min: 11.0
+  hs_offshore_min: 0.8
+  hs_offshore_max: 2.5
+  wind_dir_offshore_min: 292.5
+  wind_dir_offshore_max: 22.5
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: intermediate
+  bottom: point
+  source: https://www.surf-forecast.com/breaks/Aragum-Bay
+  confidence: medium
+
+- id: tamarin-bay
+  name: Tamarin Bay
+  country: Maurice
+  lat: -20.3281
+  lon: 57.3576
+  airport_iata: MRU
+  swell_period_min: 12.0
+  hs_offshore_min: 1.2
+  hs_offshore_max: 3.0
+  wind_dir_offshore_min: 135.0
+  wind_dir_offshore_max: 225.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: advanced
+  bottom: reef
+  source: https://www.surf-forecast.com/breaks/Tamarin-Bay
+  confidence: low
+  swell_dir_override: [180.0, 270.0]
+  override_reason: >-
+    Ombre d'île sous le seuil de 500 km. Le lancer de rayons donne 254-10, en
+    excluant le sud-ouest parce que La Réunion se trouve à environ 220 km sur ce cap.
+    Or Tamarin marche à la houle australe, qui vient précisément de ce secteur ; et
+    la fenêtre calculée lui attribue en échange un secteur nord dont il ne reçoit
+    rien. C'est l'écart le plus net du référentiel, cohérent avec `confidence: low`.
+
+- id: bells-beach
+  name: Bells Beach
+  country: Australie
+  lat: -38.3784
+  lon: 144.2950
+  airport_iata: MEL
+  swell_period_min: 11.0
+  hs_offshore_min: 1.5
+  hs_offshore_max: 4.5
+  wind_dir_offshore_min: 270.0
+  wind_dir_offshore_max: 0.0
+  wind_speed_max_offshore: 14.0
+  wind_speed_max_onshore: 7.0
+  level: advanced
+  bottom: point
+  source: https://www.surf-forecast.com/breaks/Bells-Beach
+  confidence: medium

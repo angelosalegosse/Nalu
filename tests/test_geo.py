@@ -216,10 +216,9 @@ def test_le_rayon_ne_traverse_pas_la_planete_a_l_antimeridien() -> None:
 
 def test_widest_arc_retient_la_plus_longue_plage_a_cheval_sur_zero() -> None:
     """Une plage qui enjambe l'index 0 doit etre vue d'un seul tenant."""
-    pas = 90.0
     # Secteurs 270 et 0 ouverts, 90 et 180 fermes.
-    fenetre = widest_arc([True, False, False, True], step_deg=pas)
-    assert fenetre == (270.0, 360.0)
+    fenetre = widest_arc([True, False, False, True], step_deg=90.0)
+    assert fenetre == (270.0, 0.0)  # bornes normalisees, pas (270, 360)
     assert in_arc(0.0, *fenetre)
     assert in_arc(270.0, *fenetre)
     assert not in_arc(90.0, *fenetre)
@@ -227,6 +226,15 @@ def test_widest_arc_retient_la_plus_longue_plage_a_cheval_sur_zero() -> None:
 
 def test_widest_arc_sur_un_seul_secteur_est_degenere() -> None:
     assert widest_arc([False, True, False, False], step_deg=90.0) == (90.0, 90.0)
+
+
+def test_widest_arc_normalise_la_borne_de_fin() -> None:
+    """Un arc a cheval sur le nord doit sortir en (330, 30), jamais en (330, 390)."""
+    # Secteurs 300, 330, 0, 30 ouverts sur une grille de 30 degres.
+    ouverts = [b in {300.0, 330.0, 0.0, 30.0} for b in range(0, 360, 30)]
+    fenetre = widest_arc(ouverts, step_deg=30.0)
+    assert fenetre == (300.0, 30.0)
+    assert 0.0 <= fenetre[1] < 360.0
 
 
 def test_widest_arc_refuse_une_taille_incoherente() -> None:

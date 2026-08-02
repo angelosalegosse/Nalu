@@ -166,9 +166,15 @@ def widest_arc(
 ) -> tuple[float, float] | None:
     """Plus longue plage circulaire de secteurs exposes, en (start, end) inclus.
 
+    Les deux bornes sont ramenees dans [0, 360) : un arc a cheval sur le nord sort
+    donc sous la forme (330, 30) et non (330, 390). `in_arc` raisonne modulo 360 et
+    lit les deux formes de la meme facon, mais seule la premiere reste lisible dans
+    un fichier de reference.
+
     Renvoie `None` si aucun rayon n'est libre (spot en fond de baie ferme), et
-    `(0, 360)` si tous le sont (ile en plein ocean) : cet encodage est exactement
-    celui que `in_arc` interprete comme un arc complet.
+    `(0, 360)` si tous le sont (ile en plein ocean) : c'est le seul cas ou la borne
+    de fin vaut 360, et c'est exactement l'encodage que `in_arc` interprete comme un
+    arc complet.
     """
     grid = bearing_grid(step_deg)
     if len(open_flags) != len(grid):
@@ -194,7 +200,7 @@ def widest_arc(
 
     step = grid[1] - grid[0]
     start = grid[best_start % size]
-    return start, start + (best_len - 1) * step
+    return start, normalize_bearing(start + (best_len - 1) * step)
 
 
 def compute_exposure_window(

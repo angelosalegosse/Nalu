@@ -41,14 +41,15 @@ reproductible **sans réseau et sans clé d'API**.
 
 ## État d'avancement
 
-Le socle est en place ([#2](https://github.com/angelosalegosse/Nalu/issues/2)) : outillage,
-`config.py` et `geo.py`. Le reste du pipeline arrive par les issues #3 à #10.
+Socle ([#2](https://github.com/angelosalegosse/Nalu/issues/2)) et référentiel
+([#3](https://github.com/angelosalegosse/Nalu/issues/3)) sont en place. Le reste du
+pipeline arrive par les issues #4 à #10.
 
 ```
-data/spots.yaml (20 spots, chacun avec `source` et `confidence`)
+data/spots.yaml (20 spots, chacun avec `source` et `confidence`)  [#3] fait
         |
         +--> geo.py : lancer de rayons sur Natural Earth          [#2] fait
-        |            -> fenetre d'exposition CALCULEE
+        |            -> fenetre d'exposition CALCULEE             [#3] fait
         |
         +--> ingest/openmeteo.py --> data/raw/*.parquet --> scoring/surf.py
         |    (houle + vent + soleil)   (cache versionne)     (surfabilite horaire)
@@ -96,6 +97,32 @@ Deux choix structurants, et leur raison :
 Les onze paramètres réglables vivent tous dans
 [`src/nalu/config.py`](src/nalu/config.py), chacun suivi de la phrase qui le justifie.
 Aucune constante en dur ailleurs.
+
+## Les fenêtres de houle sont calculées, pas déclarées
+
+Un spot ne reçoit pas la houle de toutes les directions : une pointe, une baie ou une
+île voisine en masquent une partie. Plutôt que de déclarer cette fenêtre à la main,
+[`geo.py`](src/nalu/geo.py) lance 180 rayons depuis chaque spot sur les polygones de
+côtes Natural Earth et retient le plus long arc où le rayon atteint 500 km d'océan
+ouvert.
+
+```bash
+uv run python -m nalu.exposure     # régénère data/exposure_windows.yaml
+```
+
+**Le résultat a été confronté à la direction de houle idéale publiée pour chaque
+spot. 15 fenêtres sur 20 concordent sans intervention.** Les 5 écarts ne sont pas du
+bruit, ils ont deux causes identifiées :
+
+| Cause | Spots | Ce qui se passe |
+|---|---|---|
+| Point break à enroulement | Anchor Point, Jeffreys Bay, Chicama | La houle arrive d'un cap que la pointe elle-même masque, puis réfracte autour. Le lancer de rayons mesure l'exposition **locale** ; ERA5 à 50 km donne la direction **du large**. |
+| Ombre d'une île sous 500 km | Tres Palmas, Tamarin Bay | Hispaniola, La Réunion. Le seuil de 500 km mesure le fetch nécessaire à la formation d'une houle longue — l'employer comme critère de blocage ferme un secteur que la houle traverse. |
+
+Ces 5 spots portent un `swell_dir_override` accompagné d'un `override_reason`
+obligatoire : la validation Pydantic **échoue** si la raison manque. La valeur
+calculée reste écrite dans `data/exposure_windows.yaml`, pour que l'écart entre ce
+que dit la géométrie et ce que dit le terrain reste lisible.
 
 ## Limites assumées
 

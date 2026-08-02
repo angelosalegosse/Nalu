@@ -1,0 +1,95 @@
+# FICHIER GÉNÉRÉ — ne pas éditer à la main.
+#
+#   uv run python -m nalu.exposure
+#
+# Fenêtres d'exposition à la houle, obtenues par lancer de rayons depuis chaque spot
+# sur les polygones de côtes Natural Earth (domaine public). Un secteur est retenu
+# quand le rayon atteint 500 km d'océan ouvert sans rencontrer la terre ; la
+# fenêtre est la plus longue plage circulaire de secteurs retenus.
+#
+# Pas angulaire : 2.0 degrés (180 rayons par spot).
+#
+# Ces valeurs sont CALCULÉES, pas déclarées. Pour en remplacer une, renseigner
+# `swell_dir_override` dans data/spots.yaml — `override_reason` devient alors
+# obligatoire.
+windows:
+  anchor-point:
+    arc_deg: 42.0
+    swell_dir_max: 294.0
+    swell_dir_min: 252.0
+  arugam-bay:
+    arc_deg: 180.0
+    swell_dir_max: 194.0
+    swell_dir_min: 14.0
+  banzai-pipeline:
+    arc_deg: 114.0
+    swell_dir_max: 50.0
+    swell_dir_min: 296.0
+  bells-beach:
+    arc_deg: 32.0
+    swell_dir_max: 226.0
+    swell_dir_min: 194.0
+  chicama:
+    arc_deg: 88.0
+    swell_dir_max: 310.0
+    swell_dir_min: 222.0
+  cloudbreak:
+    arc_deg: 194.0
+    swell_dir_max: 350.0
+    swell_dir_min: 156.0
+  hossegor-la-graviere:
+    arc_deg: 64.0
+    swell_dir_max: 338.0
+    swell_dir_min: 274.0
+  jeffreys-bay:
+    arc_deg: 86.0
+    swell_dir_max: 180.0
+    swell_dir_min: 94.0
+  klitmoller:
+    arc_deg: 104.0
+    swell_dir_max: 318.0
+    swell_dir_min: 214.0
+  mundaka:
+    arc_deg: 22.0
+    swell_dir_max: 348.0
+    swell_dir_min: 326.0
+  peniche-supertubos:
+    arc_deg: 116.0
+    swell_dir_max: 308.0
+    swell_dir_min: 192.0
+  playa-grande:
+    arc_deg: 130.0
+    swell_dir_max: 314.0
+    swell_dir_min: 184.0
+  ponta-preta:
+    arc_deg: 54.0
+    swell_dir_max: 342.0
+    swell_dir_min: 288.0
+  sultans:
+    arc_deg: 138.0
+    swell_dir_max: 184.0
+    swell_dir_min: 46.0
+  tamarin-bay:
+    arc_deg: 116.0
+    swell_dir_max: 10.0
+    swell_dir_min: 254.0
+  teahupoo:
+    arc_deg: 188.0
+    swell_dir_max: 290.0
+    swell_dir_min: 102.0
+  thurso-east:
+    arc_deg: 24.0
+    swell_dir_max: 6.0
+    swell_dir_min: 342.0
+  tres-palmas:
+    arc_deg: 70.0
+    swell_dir_max: 242.0
+    swell_dir_min: 172.0
+  uluwatu:
+    arc_deg: 110.0
+    swell_dir_max: 272.0
+    swell_dir_min: 162.0
+  zicatela:
+    arc_deg: 136.0
+    swell_dir_max: 280.0
+    swell_dir_min: 144.0

@@ -23,11 +23,12 @@ class NaluConfig(BaseModel):
 
     # --- Bornes de dates (2 parametres) ---------------------------------------
 
-    year_start: int = Field(default=2015, ge=1979, le=2100)
-    """Dix annees pleines d'archives ERA5 : en deca, la probabilite mensuelle est
-    trop bruitee pour etre defendable devant un prospect."""
+    year_start: int = Field(default=2022, ge=1979, le=2100)
+    """Premiere annee pleine ou Open-Meteo sert la PARTITION de houle
+    (`swell_wave_*`) : mesure spot par spot le 2026-08-02, janvier 2022 est complet
+    sur les 20. Avant, seule la mer totale (`wave_*`) existe, via ERA5-Ocean."""
 
-    year_end: int = Field(default=2024, ge=1979, le=2100)
+    year_end: int = Field(default=2025, ge=1979, le=2100)
     """Derniere annee civile complete disponible : inclure une annee partielle
     biaiserait mecaniquement les mois qu'elle ne couvre pas."""
 
@@ -99,3 +100,50 @@ class NaluConfig(BaseModel):
 CONFIG: Final[NaluConfig] = NaluConfig()
 """Instance unique. Importer `CONFIG`, ne jamais reconstruire un `NaluConfig` en
 dehors des tests : deux configurations divergentes produiraient deux classements."""
+
+
+# ─── Specification de la source, figee ici ────────────────────────────────────
+#
+# Ce ne sont pas des parametres reglables du modele — les onze sont au-dessus — mais
+# la definition exacte de ce qu'on demande a Open-Meteo. Elle vit ici pour que la
+# variable de houle retenue soit impossible a changer par inadvertance.
+
+SWELL_HEIGHT: Final[str] = "swell_wave_height"
+"""LA variable de hauteur du modele. Surtout PAS `wave_height`, qui agrege la mer du
+vent : du clapot serait compte comme surfable. Verifie par test."""
+
+SWELL_DIRECTION: Final[str] = "swell_wave_direction"
+SWELL_PERIOD: Final[str] = "swell_wave_period"
+
+MARINE_HOURLY: Final[tuple[str, ...]] = (
+    SWELL_HEIGHT,
+    SWELL_DIRECTION,
+    SWELL_PERIOD,
+    "wave_height",
+    "wave_direction",
+    "wave_period",
+    "wind_wave_height",
+)
+"""Les trois premieres alimentent le modele. Les quatre suivantes ne servent QU'A
+l'affichage et au diagnostic : elles permettent de montrer l'ecart entre houle et mer
+totale sans jamais entrer dans le score."""
+
+WEATHER_HOURLY: Final[tuple[str, ...]] = ("wind_speed_10m", "wind_direction_10m")
+"""Vent a 10 m, seule hauteur servie par l'archive et convention meteo standard."""
+
+WEATHER_DAILY: Final[tuple[str, ...]] = ("sunrise", "sunset")
+"""Fenetre diurne reelle, par spot et par jour. Un spot au-dela de 50 degres de
+latitude doit avoir nettement moins d'heures surfables en decembre qu'en juin."""
+
+MARINE_URL: Final[str] = "https://marine-api.open-meteo.com/v1/marine"
+ARCHIVE_URL: Final[str] = "https://archive-api.open-meteo.com/v1/archive"
+
+QUOTA_PER_MINUTE: Final[int] = 600
+QUOTA_PER_HOUR: Final[int] = 5_000
+QUOTA_PER_DAY: Final[int] = 10_000
+"""Plafonds du palier gratuit Open-Meteo, en unites PONDEREES et non en requetes :
+`(variables / 10) x (jours / 14) x localisations`. Grouper les spots reduit la
+latence, pas la consommation."""
+
+MAX_LOCATIONS_PER_REQUEST: Final[int] = 25
+"""Au-dela, la reponse groupee devient lourde a decouper pour un gain nul de quota."""

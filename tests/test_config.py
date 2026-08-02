@@ -33,9 +33,14 @@ def test_les_valeurs_par_defaut_sont_dans_leurs_bornes() -> None:
     assert CONFIG.llm_alpha_decimals >= 0
 
 
-def test_les_annees_couvrent_dix_saisons_pleines() -> None:
-    assert list(CONFIG.years) == list(range(2015, 2025))
-    assert len(CONFIG.years) == 10
+def test_les_annees_couvrent_l_archive_de_partition_de_houle() -> None:
+    """2022 est la première année pleine où `swell_wave_*` existe chez Open-Meteo.
+
+    Mesuré sur les 20 spots le 2026-08-02. Avant, seule la mer totale est servie, et
+    l'utiliser reviendrait à compter du clapot comme surfable.
+    """
+    assert list(CONFIG.years) == list(range(2022, 2026))
+    assert len(CONFIG.years) == 4
 
 
 def test_la_config_est_gelee() -> None:

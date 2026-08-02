@@ -1,6 +1,6 @@
 # Nalu
 
-Moteur de recommandation de trips surf : croise 10 ans de climatologie de houle avec les prix des vols au départ de Paris, et classe les spots selon un curseur qualité/prix réglable par l'utilisateur.
+Moteur de recommandation de trips surf : croise **4 ans (2022‑2025)** de climatologie de houle avec les prix des vols au départ de Paris, et classe les spots selon un curseur qualité/prix réglable par l'utilisateur.
 
 **Nature du projet :** vitrine technique d'un cabinet de conseil Data & IA. Le lecteur cible du dépôt n'est pas un surfeur, c'est un prospect qui évalue une compétence. Ce n'est pas destiné à la production, mais tout doit être propre, auditable et publiquement accessible.
 
@@ -43,6 +43,8 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 - **Score en rangs centiles :** `Score = alpha * rang(Q) + (1-alpha) * rang(-prix)`, sur les 240 couples spot x mois. **Jamais de normalisation min-max** : une seule valeur extrême écrase l'échelle et rend le curseur inerte.
 - **`Q(s,m) = P_surf(s,m)`**, une probabilité pure, sans pondération. L'intensité est affichée mais **n'entre pas dans le score** : on n'additionne pas une probabilité et une grandeur non bornée.
 - **Variable de houle : `swell_wave_height`, jamais `wave_height`.** La seconde agrège la mer du vent, donc du clapot compté comme surfable.
+- **Profondeur d'archive : 2022‑2025, 4 ans — pas 10.** *Amendé le 2026-08-02, mesuré et non déduit.* Open-Meteo sert la partition de houle (`swell_wave_*`) uniquement depuis décembre 2021, via `best_match`. Le modèle `era5_ocean`, qui remonte à 1940, ne sert **que** la mer totale (`wave_*`) : vérifié année par année sur Bali et Hossegor, `swell_wave_*` y est vide même en 2024. L'arbitrage « 10 ans avec la mer totale » contre « 4 ans avec la houle pure » a été tranché en faveur de la seconde : la décision ci-dessus prime sur la profondeur. Janvier 2022 est complet sur les 20 spots.
+- **NOAA WaveWatch III est écarté comme alternative.** Le hindcast 30 ans couvre 1979‑2009, le multi-grid s'arrête en 2019, le tout en GRIB2. Il ne rejoint jamais le présent et ne résout donc ni la profondeur ni la licence. La demi-journée d'évaluation inscrite au plan est sans objet.
 - **Seuils de hauteur nommés `hs_offshore_min` / `hs_offshore_max`.** Ce sont des hauteurs significatives **au large** (ERA5 à 50 km de maille), pas des tailles de vague au pic.
 - **`vent_ok` dépend du secteur :** `SI offshore ALORS vitesse < max_offshore SINON vitesse < max_onshore`. **Jamais un OU**, qui déclarerait surfable un offshore de 45 nœuds.
 - **Fenêtres directionnelles calculées**, pas déclarées : lancer de rayons sur les côtes Natural Earth. Override manuel possible mais `override_reason` obligatoire.

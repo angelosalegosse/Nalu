@@ -17,9 +17,14 @@ __pycache__/
 *.egg-info/
 
 # Parquet : ignore par defaut, SAUF le cache versionne qui est un livrable.
-# Sans `data/snapshots/`, la demo hors ligne ne fonctionne pas.
+# Sans `data/snapshots/`, la demo hors ligne ne fonctionne pas. Le `**` couvre
+# l'arborescence par spot et par annee du cache Open-Meteo.
 *.parquet
 !data/snapshots/*.parquet
+!data/snapshots/**/*.parquet
+
+# Ecritures interrompues : jamais commitees, jamais relues comme valides.
+*.partiel
 
 # Notebooks
 .ipynb_checkpoints/

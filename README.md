@@ -1,7 +1,7 @@
 # Nalu
 
-Moteur de recommandation de trips surf. Il croise **dix ans de climatologie de houle**
-(ERA5, 2015-2024) avec les **prix des vols au départ de Paris**, et classe les spots
+Moteur de recommandation de trips surf. Il croise **quatre ans de climatologie de
+houle** (2022-2025) avec les **prix des vols au départ de Paris**, et classe les spots
 selon un curseur que l'utilisateur déplace entre « la meilleure vague » et
 « le billet le moins cher ».
 
@@ -41,9 +41,10 @@ reproductible **sans réseau et sans clé d'API**.
 
 ## État d'avancement
 
-Socle ([#2](https://github.com/angelosalegosse/Nalu/issues/2)) et référentiel
-([#3](https://github.com/angelosalegosse/Nalu/issues/3)) sont en place. Le reste du
-pipeline arrive par les issues #4 à #10.
+Socle ([#2](https://github.com/angelosalegosse/Nalu/issues/2)), référentiel
+([#3](https://github.com/angelosalegosse/Nalu/issues/3)) et ingestion
+([#4](https://github.com/angelosalegosse/Nalu/issues/4)) sont en place. Le reste du
+pipeline arrive par les issues #6 à #10.
 
 ```
 data/spots.yaml (20 spots, chacun avec `source` et `confidence`)  [#3] fait
@@ -51,8 +52,9 @@ data/spots.yaml (20 spots, chacun avec `source` et `confidence`)  [#3] fait
         +--> geo.py : lancer de rayons sur Natural Earth          [#2] fait
         |            -> fenetre d'exposition CALCULEE             [#3] fait
         |
-        +--> ingest/openmeteo.py --> data/raw/*.parquet --> scoring/surf.py
-        |    (houle + vent + soleil)   (cache versionne)     (surfabilite horaire)
+        +--> ingest/openmeteo.py --> 160 parquet COMMITES  --> scoring/surf.py
+        |    (houle + vent + soleil)  (701 280 heures,          (surfabilite horaire)
+        |     [#4] fait                11,8 Mo, hors ligne)
         |                                                            |
         |                                                            v
         |                                                  scoring/climatology.py
@@ -123,6 +125,34 @@ Ces 5 spots portent un `swell_dir_override` accompagné d'un `override_reason`
 obligatoire : la validation Pydantic **échoue** si la raison manque. La valeur
 calculée reste écrite dans `data/exposure_windows.yaml`, pour que l'écart entre ce
 que dit la géométrie et ce que dit le terrain reste lisible.
+
+## Pourquoi quatre ans et pas dix
+
+Le projet visait dix ans d'archives. La mesure a tranché autrement, et le raisonnement
+mérite d'être lu — c'est le genre d'arbitrage qui décide de la valeur d'un modèle.
+
+Open-Meteo distingue deux choses qu'on confond facilement :
+
+| | `wave_*` — mer totale | `swell_wave_*` — houle seule |
+|---|---|---|
+| Contenu | houle **+ mer du vent** | houle uniquement |
+| `era5_ocean` (0,5°) | 1940 → aujourd'hui | **vide, à toutes les années** |
+| `best_match` (5–25 km) | déc. 2021 → | déc. 2021 → |
+
+Vérifié année par année, sur plusieurs spots. La documentation annonce
+`swell_wave_height` comme disponible : c'est faux pour ERA5-Ocean.
+
+L'arbitrage était donc **dix ans avec la mer du vent incluse**, ou **quatre ans avec la
+houle pure**. Utiliser la mer totale ferait compter du clapot comme surfable — c'est
+exactement ce que le modèle cherche à éviter, puisque toute sa valeur tient à ne pas
+confondre une vague de 1,5 m à 14 s avec un clapot de 1,5 m à 5 s.
+
+**Quatre ans de houle pure valent mieux que dix ans de mer confondue.** La limite est
+réelle et assumée : la variabilité interannuelle est sous-échantillonnée, et un épisode
+El Niño pèse plus lourd sur quatre ans que sur dix.
+
+NOAA WaveWatch III a été évalué comme alternative et écarté : son hindcast couvre
+1979-2009, le multi-grid s'arrête en 2019, et il ne rejoint jamais le présent.
 
 ## Limites assumées
 

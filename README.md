@@ -1,6 +1,6 @@
 # Nalu
 
-### → **[Ouvrir la démo : nalu.streamlit.app](https://nalu.streamlit.app)**
+### → **[Ouvrir la démo : nalu-surf.streamlit.app](https://nalu-surf.streamlit.app)**
 
 Rien à cloner, rien à installer. **Si la page met une trentaine de secondes à
 apparaître, ce n'est pas cassé :** l'hébergement gratuit endort les applications

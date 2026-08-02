@@ -154,6 +154,73 @@ El Niño pèse plus lourd sur quatre ans que sur dix.
 NOAA WaveWatch III a été évalué comme alternative et écarté : son hindcast couvre
 1979-2009, le multi-grid s'arrête en 2019, et il ne rejoint jamais le présent.
 
+## Couverture des prix, et le biais qu'elle cache — mesuré le 2 août 2026
+
+Travelpayouts ne fait pas d'interrogation GDS : il sert des minima issus du **cache de
+recherches de ses utilisateurs**. La couverture d'une route est donc proportionnelle à
+sa popularité touristique, pas à son intérêt pour un surfeur. Ce biais était prévu
+avant la mesure ; le plan de repli a été écrit avant d'en connaître le résultat.
+
+Sonde `uv run python -m nalu.ingest.flights --probe`, origine `PAR`, horizon 12 mois :
+
+| Spot | IATA | Mois avec un prix | Popularité |
+|---|---|---:|---:|
+| Uluwatu | DPS | 11 | 3 |
+| Sultans | MLE | 10 | 3 |
+| Teahupo'o | PPT | 9 | 2 |
+| Supertubos | LIS | 7 | 3 |
+| Tamarin Bay | MRU | 7 | 3 |
+| Arugam Bay | CMB | 4 | 2 |
+| Bells Beach | MEL | 4 | 2 |
+| Ponta Preta | SID | 4 | 2 |
+| Anchor Point | AGA | 3 | 3 |
+| Mundaka | BIO | 3 | 3 |
+| La Gravière | BIQ | 2 | 3 |
+| Banzai Pipeline | HNL | 2 | 2 |
+| Playa Grande | LIR | 2 | 2 |
+| Cloudbreak | NAN | 1 | 1 |
+| Tres Palmas | SJU | 1 | 2 |
+| **Klitmøller** | AAL | **0** | 1 |
+| **Thurso East** | INV | **0** | 1 |
+| **Jeffreys Bay** | PLZ | **0** | 1 |
+| **Zicatela** | PXM | **0** | 1 |
+| **Chicama** | TRU | **0** | 1 |
+
+**Corrélation de rangs entre couverture et popularité : +0,78.**
+
+Le biais n'est donc pas une hypothèse, c'est un fait mesuré. **Les cinq destinations
+sans aucun prix sont exactement les cinq de popularité minimale.** Le passage en rang
+centile aurait rendu ce biais invisible, pas absent : sans cette mesure, le classement
+final aurait silencieusement corrélé avec la fréquentation touristique.
+
+### Décision produit appliquée
+
+15 destinations couvertes sur 20 → **référentiel restreint aux spots couverts**, selon
+le tableau de repli fixé *avant* la mesure (≥ 16 : deux axes · 10–15 : restreint ·
+< 10 : mono-axe). Ce repli n'a pas été renégocié après coup — une décision prise après
+le résultat serait une justification, pas une décision.
+
+Concrètement, et conformément au modèle : **les cinq spots non couverts restent
+affichés**, reçoivent un rang de prix nul et sont visiblement marqués « prix non
+couvert ». La restriction porte sur l'axe prix, pas sur le référentiel : les faire
+disparaître reviendrait à laisser le biais décider du contenu du produit.
+
+### Ce que ce chiffre ne dit pas
+
+« Couvert » signifie ici **au moins un mois sur douze**. C'est une barre basse, et le
+résultat y est sensible :
+
+| Seuil de couverture | Destinations retenues | Décision qui en découlerait |
+|---|---:|---|
+| ≥ 1 mois *(retenu)* | 15 | référentiel restreint |
+| ≥ 2 mois | 13 | référentiel restreint |
+| ≥ 3 mois | 10 | référentiel restreint |
+| ≥ 6 mois | 5 | mono-axe |
+
+Cloudbreak et Tres Palmas, avec un seul mois servi, n'ont pas de véritable axe prix
+comparable sur l'année. C'est une limite réelle du produit, écrite ici plutôt que
+découverte par un lecteur attentif.
+
 ## Limites assumées
 
 - **ERA5-Ocean est à 0,5°, soit environ 50 km.** Ce sont des hauteurs significatives

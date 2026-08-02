@@ -1,0 +1,42 @@
+# Proxy de POPULARITÉ TOURISTIQUE des destinations, au départ de la France.
+#
+# À quoi ça sert : Travelpayouts sert des minima issus du CACHE DE RECHERCHES de ses
+# utilisateurs. La couverture d'une route est donc proportionnelle à sa popularité, pas
+# à son intérêt pour un surfeur. Sans cette mesure, le classement final corrélerait
+# silencieusement avec la fréquentation touristique — un biais invisible, pas absent.
+#
+# ─── Honnêteté sur ce proxy ───────────────────────────────────────────────────
+#
+# C'est une échelle ORDINALE À TROIS NIVEAUX, assignée à la main. Ce n'est pas une
+# mesure de trafic passagers. Elle suffit à établir le SENS et la FORCE d'une
+# corrélation de rangs, pas à quantifier un effet. Une version rigoureuse utiliserait
+# le trafic passagers annuel par aéroport ; c'est du sourçage supplémentaire, et le
+# résultat qualitatif ne changerait probablement pas.
+#
+#   3  desserte de masse depuis la France : vols directs fréquents, charters, ou
+#      destination de vacances installée dans les habitudes du marché français
+#   2  destination long-courrier établie, desservie mais sans flux de masse
+#   1  destination de niche : peu de recherches, correspondances multiples
+#
+# Assigné le 2026-08-02. Un prospect qui conteste une ligne a de quoi le faire ici.
+
+BIQ: {tier: 3, raison: "Biarritz, ligne intérieure très fréquentée depuis Paris"}
+BIO: {tier: 3, raison: "Bilbao, court-courrier européen dense"}
+LIS: {tier: 3, raison: "Lisbonne, une des destinations européennes les plus recherchées"}
+INV: {tier: 1, raison: "Inverness, Highlands écossais, aucun flux touristique de masse"}
+AAL: {tier: 1, raison: "Aalborg, Jutland du Nord, desserte régionale"}
+AGA: {tier: 3, raison: "Agadir, destination charter installée du marché français"}
+SID: {tier: 2, raison: "Sal, Cap-Vert, balnéaire établi mais volume modéré"}
+PLZ: {tier: 1, raison: "Port Elizabeth, correspondance obligatoire via Johannesburg"}
+HNL: {tier: 2, raison: "Honolulu, long-courrier établi mais lointain depuis l'Europe"}
+PXM: {tier: 1, raison: "Puerto Escondido, aéroport régional mexicain, desserte fine"}
+TRU: {tier: 1, raison: "Trujillo, aéroport régional péruvien, quasi aucune recherche depuis Paris"}
+SJU: {tier: 2, raison: "San Juan, hub caraïbe, flux surtout nord-américain"}
+LIR: {tier: 2, raison: "Liberia, porte d'entrée du Guanacaste, saisonnier"}
+DPS: {tier: 3, raison: "Denpasar, Bali, une des destinations long-courrier les plus recherchées"}
+MLE: {tier: 3, raison: "Malé, Maldives, destination de masse du segment balnéaire"}
+NAN: {tier: 1, raison: "Nadi, Fidji, marché européen marginal, deux correspondances"}
+PPT: {tier: 2, raison: "Papeete, lien français structurant mais volume limité"}
+CMB: {tier: 2, raison: "Colombo, destination établie, volume moyen"}
+MRU: {tier: 3, raison: "Maurice, destination de masse du marché français"}
+MEL: {tier: 2, raison: "Melbourne, long-courrier majeur mais tourisme européen limité"}

@@ -45,12 +45,13 @@ import polars as pl
 import yaml
 
 from nalu.config import CONFIG
+from nalu.paths import DATA, RACINE
 
 TRAVELPAYOUTS_URL = "https://api.travelpayouts.com/v1/prices/monthly"
 VARIABLE_JETON = "TRAVELPAYOUTS_TOKEN"
-ENV_PATH = Path(".env")
-POPULARITE_PATH = Path("data/airport_popularity.yaml")
-SNAPSHOT_DIR = Path("data/snapshots")
+ENV_PATH = RACINE / ".env"
+POPULARITE_PATH = DATA / "airport_popularity.yaml"
+SNAPSHOT_DIR = DATA / "snapshots"
 
 # Horizon du produit : on choisit un mois de départ à moyen terme, pas une date.
 MOIS_HORIZON = 12
@@ -70,11 +71,15 @@ SCHEMA = {
 # ─── Jeton ─────────────────────────────────────────────────────────────────────
 
 
-def charger_env(chemin: Path = ENV_PATH) -> None:
+def charger_env(chemin: Path | None = None) -> None:
     """Charge `.env` dans l'environnement, sans écraser ce qui existe déjà.
 
     Pas de dépendance pour trois lignes : le format utile est `CLE=valeur`.
+
+    `chemin` est résolu à l'appel, pas à la définition : une valeur par défaut liée
+    au moment du `def` fige `ENV_PATH` et rend le test « sans jeton » inécrivable.
     """
+    chemin = chemin if chemin is not None else ENV_PATH
     if not chemin.exists():
         return
     for ligne in chemin.read_text(encoding="utf-8").splitlines():

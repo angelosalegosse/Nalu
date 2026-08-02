@@ -63,10 +63,11 @@ from nalu.config import (
     WEATHER_HOURLY,
 )
 from nalu.net import use_system_trust_store
+from nalu.paths import DATA
 from nalu.spots import Spot, load_raw_spots
 
-SNAPSHOT_DIR = Path("data/snapshots/openmeteo")
-HTTP_CACHE = Path("data/raw/http_cache")
+SNAPSHOT_DIR = DATA / "snapshots" / "openmeteo"
+HTTP_CACHE = DATA / "raw" / "http_cache"
 
 # Unite de pondération du quota : Open-Meteo facture par tranche de 10 variables et
 # de 14 jours. Ces deux diviseurs viennent de sa documentation, pas d'un réglage.

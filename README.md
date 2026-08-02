@@ -1,5 +1,13 @@
 # Nalu
 
+### → **[Ouvrir la démo : nalu.streamlit.app](https://nalu.streamlit.app)**
+
+Rien à cloner, rien à installer. **Si la page met une trentaine de secondes à
+apparaître, ce n'est pas cassé :** l'hébergement gratuit endort les applications
+inactives et les réveille à la première visite. Les visites suivantes sont immédiates.
+
+---
+
 Moteur de recommandation de trips surf. Il croise **quatre ans de climatologie de
 houle** (2022-2025) avec les **prix des vols au départ de Paris**, et classe les spots
 selon un curseur que l'utilisateur déplace entre « la meilleure vague » et
@@ -39,12 +47,42 @@ Les deux variables d'environnement de `.env.example` sont **optionnelles**. Sans
 elles, tout démarre : le cache parquet versionné dans le dépôt rend la démonstration
 reproductible **sans réseau et sans clé d'API**.
 
+## Déploiement
+
+L'application est hébergée sur **Streamlit Community Cloud**, gratuit et connecté au
+dépôt : chaque `push` sur `main` redéploie. Trois points qui ne sont pas devinables :
+
+- **Les dépendances viennent de `uv.lock`.** Community Cloud cherche un fichier de
+  dépendances dans un ordre fixe et s'arrête au premier trouvé ; `uv.lock` est en tête.
+  C'est le bon cas : il installe les versions exactes du verrou **et** le paquet
+  `nalu` lui-même, ce qu'un `requirements.txt` ne ferait pas. Ne pas en ajouter un —
+  il ne serait pas lu, et deux fichiers de dépendances est précisément ce que la
+  documentation déconseille.
+- **Python 3.12 doit être choisi à la création de l'application**, dans « Advanced
+  settings ». `pyproject.toml` impose `requires-python = "==3.12.*"` : sur une autre
+  version, `uv sync` échoue au lieu de résoudre une pile différente en silence.
+  La version ne se change pas après coup, il faut supprimer et redéployer.
+- **`GEMINI_API_KEY` se pose en secret d'application**, jamais dans le dépôt
+  (Settings → Secrets, au format TOML). Elle est **facultative** : rien ne la lit
+  aujourd'hui, elle n'alimentera que le bloc de commentaire de l'issue #9.
+
+Les chemins de données sont ancrés sur la racine du dépôt (`nalu/paths.py`) et non sur
+le répertoire courant. C'est ce qui permet à l'application de démarrer quel que soit
+l'endroit d'où l'hébergeur la lance.
+
 ## État d'avancement
 
+Le pipeline tourne de bout en bout : 20 spots sourcés → 701 280 heures de houle →
+240 probabilités mensuelles → 240 prix → un classement que le curseur réordonne.
 Socle ([#2](https://github.com/angelosalegosse/Nalu/issues/2)), référentiel
-([#3](https://github.com/angelosalegosse/Nalu/issues/3)) et ingestion
-([#4](https://github.com/angelosalegosse/Nalu/issues/4)) sont en place. Le reste du
-pipeline arrive par les issues #6 à #10.
+([#3](https://github.com/angelosalegosse/Nalu/issues/3)), ingestion
+([#4](https://github.com/angelosalegosse/Nalu/issues/4)), prix
+([#6](https://github.com/angelosalegosse/Nalu/issues/6)), surfabilité
+([#7](https://github.com/angelosalegosse/Nalu/issues/7)), score et dashboard
+([#8](https://github.com/angelosalegosse/Nalu/issues/8)) et déploiement
+([#10](https://github.com/angelosalegosse/Nalu/issues/10)) sont livrés. Reste
+[#9](https://github.com/angelosalegosse/Nalu/issues/9) : commentaire Gemini,
+notebooks, validation externe.
 
 ```
 data/spots.yaml (20 spots, chacun avec `source` et `confidence`)  [#3] fait
@@ -243,6 +281,43 @@ découverte par un lecteur attentif.
 Données météorologiques et océaniques fournies par Open-Meteo.com,
 d'après les réanalyses ERA5 du Copernicus Climate Change Service (ECMWF).
 
-## Licence
+## Licence des données — la question tranchée avant la publication
 
-À définir avant publication de la vitrine (issue #10).
+Publier cette vitrine oblige à répondre à une question qu'une démo locale laissait
+dormir : **le tier gratuit d'Open-Meteo est réservé à l'usage non commercial**, et une
+vitrine de cabinet de conseil n'est pas un usage non commercial. L'argument « la démo
+tourne hors ligne » ne suffit plus dès lors qu'elle est publiée pour se faire connaître.
+
+La réponse tient à une distinction que les deux pages d'Open-Meteo énoncent
+séparément, et qu'il faut lire ensemble :
+
+| Ce dont on parle | Ce que dit Open-Meteo | Ce que fait Nalu |
+|---|---|---|
+| **Le service d'API** gratuit | usage **non commercial** uniquement | l'application déployée ne l'appelle **jamais** |
+| **Les données** servies par l'API | **CC BY 4.0**, qui autorise l'usage commercial avec attribution | redistribuées telles quelles, attribuées |
+| La source sous-jacente (ERA5 / Copernicus) | licence Copernicus, usage commercial autorisé | — |
+
+Ce qui est restreint, c'est **l'accès au service**, pas la réutilisation des données.
+L'application publiée ne fait aucun appel réseau : elle lit un cache parquet versionné.
+Ce cache est de la donnée sous CC BY 4.0, redistribuée avec son attribution, en pied de
+dashboard et ici même. Cette redistribution est explicitement permise par la licence.
+
+**La zone grise, écrite plutôt que passée sous silence.** L'ingestion qui a rempli ce
+cache — une seule, le 2 août 2026, 2 296 unités de quota — a bien consommé le service
+gratuit, pour un projet qui sert de vitrine à une activité commerciale. On peut soutenir
+que cette collecte unique aurait dû relever d'une licence commerciale. Trois éléments,
+pour que le lecteur juge lui-même : elle n'a eu lieu qu'une fois, elle porte sur un
+volume dérisoire, et l'application ne comporte ni publicité, ni abonnement, ni lien
+marchand. Passer à l'offre payante d'Open-Meteo lèverait l'ambiguïté, au prix de la
+première contrainte du projet — coût total nul.
+
+**NOAA WaveWatch III ne sauve pas cette question**, contrairement à ce que prévoyait le
+plan initial : son hindcast s'arrête en 2009, son multi-grid en 2019, et il ne rejoint
+jamais le présent. La bascule aurait échangé un problème de licence contre un modèle
+qui ne décrit plus le climat actuel.
+
+## Licence du code
+
+Le code de ce dépôt est publié sous licence [MIT](LICENSE). Les **données** de `data/`
+ne sont pas couvertes par cette licence : elles restent sous celle de leur source
+(Open-Meteo CC BY 4.0, Natural Earth domaine public, prix Travelpayouts).

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from nalu.ingest import flights
 from nalu.ingest.flights import VARIABLE_JETON, charger_env, check_token, empreinte, jeton
 
 JETON_FACTICE = "abcdef0123456789abcdef0123456789"
@@ -64,7 +65,11 @@ def test_sans_jeton_le_controle_echoue_proprement_et_sans_reseau(
 ) -> None:
     """Le jeton est optionnel : son absence explique, elle ne casse rien."""
     monkeypatch.delenv(VARIABLE_JETON, raising=False)
-    monkeypatch.chdir(tmp_path)  # pas de .env ici
+    # On pointe `ENV_PATH` sur un fichier absent plutôt que de changer de répertoire
+    # courant : depuis que les chemins sont ancrés sur la racine du dépôt, un `chdir`
+    # ne cache plus le `.env` du poste. Ce test passait alors pour une mauvaise
+    # raison — il lisait le vrai jeton du développeur au lieu de n'en trouver aucun.
+    monkeypatch.setattr(flights, "ENV_PATH", tmp_path / "inexistant.env")
 
     assert jeton() is None
     ok, message = check_token()

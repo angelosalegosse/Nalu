@@ -1,0 +1,31 @@
+# Secrets
+.env
+
+# Donnees brutes : regenerables par le pipeline d'ingestion, jamais commitees.
+# Forme `data/raw/*` et non `data/raw/` : git ne peut pas re-inclure un fichier
+# dont un repertoire parent est exclu, et `.gitkeep` doit rester versionne.
+data/raw/*
+!data/raw/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+*.egg-info/
+
+# Parquet : ignore par defaut, SAUF le cache versionne qui est un livrable.
+# Sans `data/snapshots/`, la demo hors ligne ne fonctionne pas.
+*.parquet
+!data/snapshots/*.parquet
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

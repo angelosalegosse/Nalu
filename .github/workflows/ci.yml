@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # `--frozen` : la CI echoue si `uv.lock` ne correspond plus a `pyproject.toml`,
+      # au lieu de resoudre en silence une pile differente de celle du poste.
+      - name: Synchroniser l'environnement
+        run: uv sync --frozen
+
+      - name: Verifier l'interpreteur epingle
+        run: uv run python -c "import sys; assert sys.version_info[:2] == (3, 12), sys.version"
+
+      - name: Lint
+        run: uv run ruff check
+
+      - name: Tests
+        run: uv run pytest
+
+      # Le raccourci Microsoft Store de la machine cible casse toute invocation de
+      # l'interpreteur suffixe. Deux precautions de redaction :
+      #   - le motif s'ecrit avec une classe de caracteres, sinon cette etape se
+      #     detecterait elle-meme ;
+      #   - `CLAUDE.md` est exclu : c'est le fichier qui ENONCE l'interdiction, il
+      #     doit pouvoir la citer telle quelle pour rester lisible.
+      - name: Aucune invocation de l'interpreteur suffixe
+        run: |
+          if git ls-files -z ':!CLAUDE.md' | xargs -0 grep -nI "python[3]"; then
+            echo "::error::reference interdite a l'interpreteur suffixe (voir CLAUDE.md)"
+            exit 1
+          fi

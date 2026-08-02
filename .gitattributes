@@ -1,0 +1,10 @@
+# Fins de ligne normalisees en LF dans le depot : le projet est developpe sous
+# Windows mais la CI tourne sous Linux, et un diff pollue par des CRLF rend une
+# revue de code illisible.
+* text=auto eol=lf
+
+# Le cache parquet est un livrable versionne : jamais de conversion de texte.
+*.parquet binary
+
+# uv.lock est genere : le sortir des diffs par defaut garde les revues lisibles.
+uv.lock linguist-generated=true

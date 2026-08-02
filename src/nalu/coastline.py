@@ -57,6 +57,44 @@ def download(jeu: str, cache_dir: Path = CACHE_DIR) -> Path:
     return cible
 
 
+CONTOUR_PATH = Path("data/world_outline.parquet")
+CONTOUR_JEU = "ne_110m_land"
+CONTOUR_TOLERANCE_DEG = 0.35
+"""Simplification de Douglas-Peucker du trait de côte d'illustration. À 0,35 degré le
+fichier tombe sous 40 Ko tout en restant lisible à l'échelle du planisphère."""
+
+
+def exporter_contour_mondial(
+    chemin: Path = CONTOUR_PATH, cache_dir: Path = CACHE_DIR
+) -> Path:
+    """Écrit un planisphère simplifié, versionné, pour le fond de carte du dashboard.
+
+    Pourquoi ce détour : `scatter_geo` de Plotly télécharge sa topologie depuis un CDN.
+    Sur une démo qui doit tourner **sans réseau**, la carte resterait vide. Natural
+    Earth est déjà une dépendance du projet et est dans le domaine public : on en tire
+    un tracé local une fois pour toutes.
+    """
+    import polars as pl
+
+    source = download(CONTOUR_JEU, cache_dir)
+    with source.open(encoding="utf-8") as f:
+        collection = json.load(f)
+
+    lons: list[float | None] = []
+    lats: list[float | None] = []
+    for entite in collection["features"]:
+        geometrie = shape(entite["geometry"]).simplify(CONTOUR_TOLERANCE_DEG)
+        morceaux = getattr(geometrie, "geoms", [geometrie])
+        for morceau in morceaux:
+            x, y = morceau.exterior.coords.xy
+            lons.extend([round(v, 3) for v in x] + [None])  # None coupe le trait
+            lats.extend([round(v, 3) for v in y] + [None])
+
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame({"lon": lons, "lat": lats}).write_parquet(chemin, compression="zstd")
+    return chemin
+
+
 def load_land(cache_dir: Path = CACHE_DIR, jeux: tuple[str, ...] = JEUX) -> BaseGeometry:
     """Géométrie unique de toutes les terres émergées, préparée pour l'intersection.
 

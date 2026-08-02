@@ -1,0 +1,22 @@
+# Theme du dashboard.
+#
+# Les couleurs viennent du systeme de dataviz du projet et ont ete passees au
+# validateur : bande de clarte, plancher de chroma, separation pour les daltonismes
+# et contraste sur la surface. Elles ne sont pas choisies a l'oeil.
+#
+# Sans ce fichier, Streamlit peint le curseur et les accents en rouge, qui est une
+# couleur de STATUT dans ce systeme : la reserver aux etats critiques evite qu'un
+# accent d'interface soit lu comme une alerte.
+
+[theme]
+base = "light"
+primaryColor = "#2a78d6"       # bleu, slot categoriel 1
+backgroundColor = "#fcfcfb"    # surface claire
+secondaryBackgroundColor = "#f0efec"
+textColor = "#0b0b0b"          # encre primaire
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

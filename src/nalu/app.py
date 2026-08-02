@@ -1,0 +1,251 @@
+"""Dashboard Nalu — le moment où le prospect déplace le curseur lui-même.
+
+    uv run streamlit run src/nalu/app.py
+
+Tout est précalculé au chargement : déplacer le curseur ne déclenche **aucun appel
+réseau et aucune relecture de parquet**, seulement une combinaison linéaire de deux
+rangs déjà calculés. C'est ce qui rend le geste instantané, et c'est ce qui permet à
+la démo de tourner devant un client sans connexion.
+"""
+
+from datetime import date
+
+import plotly.graph_objects as go
+import polars as pl
+import streamlit as st
+
+from nalu.coastline import CONTOUR_PATH
+from nalu.config import CONFIG
+from nalu.scoring.climatology import QUINZAINES_PATH
+from nalu.scoring.combine import classement as classer
+from nalu.scoring.combine import construire_tableau, fraicheur_du_snapshot
+
+MOIS = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]
+
+# Palette issue du systeme de dataviz, validee : ecarts CVD et contrastes controles
+# par le validateur, pas juges a l'oeil. Les pas sombres sont choisis POUR la surface
+# sombre, ce n'est pas une inversion automatique de la palette claire.
+CLAIR = {
+    "surface": "#fcfcfb",
+    "encre": "#0b0b0b",
+    "encre_2": "#52514e",
+    "encre_muette": "#898781",
+    "grille": "#e1e0d9",
+    "serie": "#2a78d6",
+    "serie_attenuee": "#b7d3f6",
+    "rampe": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#104281"],
+    "terre": "#e1e0d9",
+}
+SOMBRE = {
+    "surface": "#1a1a19",
+    "encre": "#ffffff",
+    "encre_2": "#c3c2b7",
+    "encre_muette": "#898781",
+    "grille": "#2c2c2a",
+    "serie": "#3987e5",
+    "serie_attenuee": "#1c5cab",
+    "rampe": ["#104281", "#184f95", "#256abf", "#3987e5", "#6da7ec", "#9ec5f4"],
+    "terre": "#2c2c2a",
+}
+
+
+def palette() -> dict:
+    theme = getattr(getattr(st, "context", None), "theme", None)
+    return SOMBRE if getattr(theme, "type", "light") == "dark" else CLAIR
+
+
+@st.cache_data(show_spinner="Chargement du cache local…")
+def charger() -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, date | None, int]:
+    """Une seule lecture disque, mise en cache. Aucun réseau, jamais."""
+    tableau = construire_tableau()
+    quinzaines = pl.read_parquet(QUINZAINES_PATH)
+    contour = pl.read_parquet(CONTOUR_PATH)
+    jour, anciennete = fraicheur_du_snapshot()
+    return tableau, quinzaines, contour, jour, anciennete
+
+
+def carte(classement: pl.DataFrame, contour: pl.DataFrame, c: dict) -> go.Figure:
+    """Planisphère hors ligne : le fond vient de Natural Earth, versionné dans le dépôt."""
+    figure = go.Figure()
+    figure.add_trace(
+        go.Scatter(
+            x=contour["lon"], y=contour["lat"], mode="lines",
+            line={"color": c["terre"], "width": 1},
+            hoverinfo="skip", showlegend=False, name="",
+        )
+    )
+    couverts = classement.filter(~pl.col("price_missing"))
+    absents = classement.filter("price_missing")
+
+    if absents.height:
+        figure.add_trace(
+            go.Scatter(
+                x=absents["lon"], y=absents["lat"], mode="markers",
+                # `circle-open` : chez Plotly c'est `color` qui dessine le TRAIT du
+                # symbole, pas `line`. La mettre a la couleur du fond rend le marqueur
+                # invisible — defaut trouve en regardant le rendu, pas en le testant.
+                marker={
+                    "size": 11, "color": c["encre_muette"], "symbol": "circle-open",
+                    "line": {"width": 2},
+                },
+                text=absents["name"], showlegend=False,
+                hovertemplate="<b>%{text}</b><br>prix non couvert<extra></extra>",
+            )
+        )
+    figure.add_trace(
+        go.Scatter(
+            x=couverts["lon"], y=couverts["lat"], mode="markers",
+            marker={
+                "size": 13, "color": couverts["score"], "colorscale":
+                    [[i / (len(c["rampe"]) - 1), h] for i, h in enumerate(c["rampe"])],
+                "cmin": 0, "cmax": 1, "line": {"color": c["surface"], "width": 2},
+                "colorbar": {
+                    "title": {"text": "Score", "font": {"color": c["encre_2"], "size": 12}},
+                    "tickfont": {"color": c["encre_muette"], "size": 11},
+                    "outlinewidth": 0, "thickness": 12, "len": 0.7,
+                },
+            },
+            text=couverts["name"], customdata=couverts.select("score", "price_eur").to_numpy(),
+            showlegend=False,
+            hovertemplate="<b>%{text}</b><br>score %{customdata[0]:.2f}"
+            "<br>%{customdata[1]:.0f} €<extra></extra>",
+        )
+    )
+    figure.update_layout(
+        paper_bgcolor=c["surface"], plot_bgcolor=c["surface"],
+        margin={"l": 0, "r": 0, "t": 0, "b": 0}, height=340,
+        xaxis={"visible": False, "range": [-180, 180]},
+        yaxis={"visible": False, "range": [-58, 74], "scaleanchor": "x", "scaleratio": 1},
+        hoverlabel={"bgcolor": c["surface"], "font": {"color": c["encre"]}},
+    )
+    return figure
+
+
+def saisonnalite(serie: pl.DataFrame, mois_actif: int, c: dict) -> go.Figure:
+    """Les douze mois du spot sélectionné. Une seule série : pas de légende."""
+    couleurs = [c["serie"] if m == mois_actif else c["serie_attenuee"] for m in serie["month"]]
+    figure = go.Figure(
+        go.Bar(
+            x=[MOIS[m - 1][:4] for m in serie["month"]],
+            y=serie["p_surf"] * 100,
+            marker={"color": couleurs, "line": {"width": 0}},
+            hovertemplate="%{x} — %{y:.1f} % des heures diurnes<extra></extra>",
+        )
+    )
+    figure.update_layout(
+        paper_bgcolor=c["surface"], plot_bgcolor=c["surface"],
+        margin={"l": 0, "r": 0, "t": 10, "b": 0}, height=220, bargap=0.35,
+        xaxis={"tickfont": {"color": c["encre_muette"], "size": 11}, "showgrid": False},
+        yaxis={
+            "title": {"text": "P_surf (%)", "font": {"color": c["encre_2"], "size": 12}},
+            "tickfont": {"color": c["encre_muette"], "size": 11},
+            "gridcolor": c["grille"], "zeroline": False,
+        },
+        hoverlabel={"bgcolor": c["surface"], "font": {"color": c["encre"]}},
+    )
+    return figure
+
+
+def main() -> None:
+    st.set_page_config(page_title="Nalu — où surfer, quel mois", layout="wide")
+    c = palette()
+    tableau, quinzaines, contour, jour_snapshot, anciennete = charger()
+
+    st.title("Nalu")
+    st.caption(
+        f"Où partir surfer, et quand. {CONFIG.year_end - CONFIG.year_start + 1} ans de "
+        f"climatologie de houle ({CONFIG.year_start}-{CONFIG.year_end}) croisés avec les "
+        f"prix des vols au départ de {CONFIG.origin_iata}."
+    )
+
+    gauche, droite = st.columns([1, 2])
+    with gauche:
+        mois = st.selectbox(
+            "Mois de départ", range(1, 13), format_func=lambda m: MOIS[m - 1].capitalize()
+        )
+    with droite:
+        alpha = st.slider(
+            "Le billet le moins cher  ←→  la meilleure vague",
+            0.0, 1.0, 0.5, 0.05,
+            help="alpha = 1 privilégie la qualité de houle, alpha = 0 le prix du billet.",
+        )
+
+    # Une seule implémentation du classement, partagée avec les tests : l'ordre affiché
+    # est exactement celui qu'ils vérifient.
+    classement = classer(tableau, mois, alpha)
+
+    st.plotly_chart(carte(classement, contour, c), use_container_width=True)
+
+    affichage = classement.select(
+        "rang",
+        pl.col("name").alias("Spot"),
+        pl.col("country").alias("Pays"),
+        (pl.col("p_surf") * 100).round(1).alias("P_surf %"),
+        pl.col("q").round(3).alias("Q"),
+        pl.col("rank_q").round(3).alias("rang Q"),
+        pl.col("price_eur").alias("Prix €"),
+        pl.col("rank_price").round(3).alias("rang prix"),
+        pl.col("score").round(3).alias("Score"),
+        pl.col("hours_surfable").alias("h surfables"),
+        pl.col("hours_daylight").alias("h diurnes"),
+        pl.col("intensity").round(2).alias("Intensité"),
+        pl.when(pl.col("price_missing"))
+        .then(pl.lit("prix non couvert"))
+        .when(pl.col("dispersion_alert"))
+        .then(pl.lit("écart entre quinzaines"))
+        .otherwise(pl.lit(""))
+        .alias("Signalement"),
+    )
+    st.dataframe(affichage, hide_index=True, use_container_width=True)
+    st.caption(
+        "**Intensité** est informative : elle n'entre pas dans le score. "
+        "**Le rang prix vaut 0** pour un spot non couvert — il reste affiché."
+    )
+
+    choix = st.selectbox("Saisonnalité d'un spot", classement["name"].to_list())
+    spot_id = classement.filter(pl.col("name") == choix)["spot_id"][0]
+    st.plotly_chart(
+        saisonnalite(
+            tableau.filter(pl.col("spot_id") == spot_id).sort("month"), mois, c
+        ),
+        use_container_width=True,
+    )
+
+    quinzaine = quinzaines.filter(
+        (pl.col("spot_id") == spot_id) & (pl.col("month") == mois)
+    ).sort("fortnight")
+    if quinzaine.height == 2:
+        q1, q2 = (v * 100 for v in quinzaine["p_surf"])
+        st.caption(
+            f"{MOIS[mois - 1].capitalize()} : première quinzaine {q1:.1f} %, "
+            f"seconde {q2:.1f} %. Un écart de plus de "
+            f"{CONFIG.fortnight_gap_points:.0f} points est signalé dans le tableau."
+        )
+
+    st.divider()
+    if jour_snapshot is None:
+        st.warning("Aucun snapshot de prix : l'axe prix est indisponible.")
+    else:
+        fraicheur = (
+            f"Prix collectés le {jour_snapshot.isoformat()}"
+            f" — il y a {anciennete} jour{'s' if anciennete > 1 else ''}."
+        )
+        perime = anciennete > 30
+        (st.warning if perime else st.caption)(
+            fraicheur
+            + (" Ces prix datent ; ils illustrent la méthode, pas une offre." if perime else "")
+        )
+    st.caption(
+        "Données météorologiques et océaniques fournies par "
+        "[Open-Meteo.com](https://open-meteo.com/) sous licence "
+        "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). "
+        "Trait de côte : [Natural Earth](https://www.naturalearthdata.com/), domaine public. "
+        "Prix : [Travelpayouts](https://www.travelpayouts.com/)."
+    )
+
+
+if __name__ == "__main__":
+    main()

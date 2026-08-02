@@ -24,6 +24,9 @@ __pycache__/
 !data/snapshots/**/*.parquet
 # Sorties de scoring : recalculables, mais commitees pour que la demo demarre vite.
 !data/scores/*.parquet
+# Planisphere du dashboard : sans lui la carte est vide hors ligne, Plotly allant
+# chercher sa topologie sur un CDN.
+!data/world_outline.parquet
 
 # Ecritures interrompues : jamais commitees, jamais relues comme valides.
 *.partiel

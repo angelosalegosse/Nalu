@@ -1,4 +1,4 @@
-"""Référentiel des spots : validation stricte et résolution des fenêtres.
+﻿"""Référentiel des spots : validation stricte et résolution des fenêtres.
 
 Le référentiel est l'actif central du produit. Une valeur manquante ou incohérente
 doit faire échouer le chargement, jamais produire un score plausible et faux.
@@ -29,7 +29,7 @@ VALIDE = {
     "lat": 43.0,
     "lon": -1.5,
     "airport_iata": "BIQ",
-    "swell_period_min": 10.0,
+    "swell_peak_period_min": 10.0,
     "hs_offshore_min": 1.0,
     "hs_offshore_max": 3.0,
     "wind_dir_offshore_min": 45.0,
@@ -78,7 +78,7 @@ def test_tout_attribut_manquant_fait_echouer(cle: str) -> None:
         ("lat", -91.0),
         ("lon", 181.0),
         ("id", "Spot Temoin"),
-        ("swell_period_min", 0.0),
+        ("swell_peak_period_min", 0.0),
         ("wind_dir_offshore_min", 360.0),
         ("source", "n/a"),
     ],

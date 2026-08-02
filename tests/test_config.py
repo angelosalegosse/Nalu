@@ -1,4 +1,4 @@
-"""`config.py` : toutes les valeurs dans leurs bornes des le chargement.
+﻿"""`config.py` : toutes les valeurs dans leurs bornes des le chargement.
 
 Une configuration incoherente doit faire echouer l'import, pas un calcul trois
 etapes plus loin dans le pipeline.
@@ -12,7 +12,7 @@ from nalu.config import CONFIG, NaluConfig
 
 def test_les_onze_parametres_existent() -> None:
     """Le compte est verifie : ajouter un parametre sans le justifier doit se voir."""
-    assert len(NaluConfig.model_fields) == 11
+    assert len(NaluConfig.model_fields) == 12
 
 
 def test_chaque_parametre_porte_sa_justification() -> None:

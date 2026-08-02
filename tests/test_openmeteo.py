@@ -1,4 +1,4 @@
-"""Ingestion Open-Meteo : quota pondéré, parsing, ré-entrance, intégrité du cache.
+﻿"""Ingestion Open-Meteo : quota pondéré, parsing, ré-entrance, intégrité du cache.
 
 Aucun test ne touche le réseau. Les réponses sont des doublures qui imitent la forme
 FlatBuffers du client officiel — c'est le parsing qui est à nous, pas le transport.
@@ -141,7 +141,7 @@ SPOT_TEMOIN = Spot.model_validate(
         "lat": 43.0,
         "lon": -1.5,
         "airport_iata": "BIQ",
-        "swell_period_min": 10.0,
+        "swell_peak_period_min": 10.0,
         "hs_offshore_min": 1.0,
         "hs_offshore_max": 3.0,
         "wind_dir_offshore_min": 45.0,

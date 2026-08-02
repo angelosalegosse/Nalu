@@ -1,4 +1,4 @@
-# Référentiel des spots — CURÉ À LA MAIN.
+﻿# Référentiel des spots — CURÉ À LA MAIN.
 #
 # ─── Provenance ───────────────────────────────────────────────────────────────
 #
@@ -69,7 +69,7 @@
   lat: 43.6687
   lon: -1.4563
   airport_iata: BIQ
-  swell_period_min: 10.0
+  swell_peak_period_min: 10.0
   hs_offshore_min: 1.0
   hs_offshore_max: 3.0
   wind_dir_offshore_min: 45.0
@@ -87,7 +87,7 @@
   lat: 43.4072
   lon: -2.6975
   airport_iata: BIO
-  swell_period_min: 11.0
+  swell_peak_period_min: 11.0
   hs_offshore_min: 1.2
   hs_offshore_max: 3.5
   wind_dir_offshore_min: 135.0
@@ -98,6 +98,14 @@
   bottom: beach
   source: https://www.surf-forecast.com/breaks/Mundaka
   confidence: medium
+  swell_dir_override: [270.0, 0.0]
+  override_reason: >-
+    Embouchure de ria. Le lancer de rayons donne 326-348, soit 22 degrés seulement :
+    depuis l'intérieur de la ria de Gernika, la sortie vers la mer est un goulet et la
+    géométrie ne voit que lui. Mesuré au point de grille, la houle arrive en réalité
+    du 305 en médiane, hors de cette fenêtre — le spot était déclaré mort toute
+    l'année. La fenêtre retenue est le secteur de 90 degrés centré sur le nord-ouest
+    annoncé par la source.
 
 - id: peniche-supertubos
   name: Supertubos
@@ -105,7 +113,7 @@
   lat: 39.3355
   lon: -9.3782
   airport_iata: LIS
-  swell_period_min: 10.0
+  swell_peak_period_min: 10.0
   hs_offshore_min: 1.0
   hs_offshore_max: 3.0
   wind_dir_offshore_min: 0.0
@@ -123,7 +131,7 @@
   lat: 58.6100
   lon: -3.5159
   airport_iata: INV
-  swell_period_min: 9.0
+  swell_peak_period_min: 9.0
   hs_offshore_min: 1.2
   hs_offshore_max: 3.5
   wind_dir_offshore_min: 90.0
@@ -141,7 +149,7 @@
   lat: 57.0397
   lon: 8.4783
   airport_iata: AAL
-  swell_period_min: 5.0
+  swell_peak_period_min: 5.0
   hs_offshore_min: 0.8
   hs_offshore_max: 2.5
   wind_dir_offshore_min: 157.5
@@ -161,7 +169,7 @@
   lat: 30.5442
   lon: -9.7108
   airport_iata: AGA
-  swell_period_min: 11.0
+  swell_peak_period_min: 11.0
   hs_offshore_min: 1.2
   hs_offshore_max: 4.0
   wind_dir_offshore_min: 0.0
@@ -185,7 +193,7 @@
   lat: 16.5983
   lon: -22.9483
   airport_iata: SID
-  swell_period_min: 10.0
+  swell_peak_period_min: 10.0
   hs_offshore_min: 1.0
   hs_offshore_max: 3.5
   wind_dir_offshore_min: 45.0
@@ -203,7 +211,7 @@
   lat: -34.0350
   lon: 24.9280
   airport_iata: PLZ
-  swell_period_min: 11.0
+  swell_peak_period_min: 11.0
   hs_offshore_min: 1.2
   hs_offshore_max: 4.0
   wind_dir_offshore_min: 202.5
@@ -230,7 +238,7 @@
   lat: 21.6684
   lon: -158.0606
   airport_iata: HNL
-  swell_period_min: 12.0
+  swell_peak_period_min: 12.0
   hs_offshore_min: 2.0
   hs_offshore_max: 5.0
   wind_dir_offshore_min: 67.5
@@ -248,7 +256,7 @@
   lat: 15.8504
   lon: -97.0654
   airport_iata: PXM
-  swell_period_min: 13.0
+  swell_peak_period_min: 13.0
   hs_offshore_min: 1.5
   hs_offshore_max: 4.5
   wind_dir_offshore_min: 0.0
@@ -266,7 +274,7 @@
   lat: -7.6935
   lon: -79.4474
   airport_iata: TRU
-  swell_period_min: 12.0
+  swell_peak_period_min: 12.0
   hs_offshore_min: 1.0
   hs_offshore_max: 3.0
   wind_dir_offshore_min: 22.5
@@ -290,7 +298,7 @@
   lat: 18.3462
   lon: -67.2719
   airport_iata: SJU
-  swell_period_min: 13.0
+  swell_peak_period_min: 13.0
   hs_offshore_min: 2.0
   hs_offshore_max: 5.0
   wind_dir_offshore_min: 45.0
@@ -315,7 +323,7 @@
   lat: 10.3271
   lon: -85.8551
   airport_iata: LIR
-  swell_period_min: 11.0
+  swell_peak_period_min: 11.0
   hs_offshore_min: 0.8
   hs_offshore_max: 2.5
   wind_dir_offshore_min: 45.0
@@ -335,7 +343,7 @@
   lat: -8.8149
   lon: 115.0886
   airport_iata: DPS
-  swell_period_min: 12.0
+  swell_peak_period_min: 12.0
   hs_offshore_min: 1.2
   hs_offshore_max: 4.0
   wind_dir_offshore_min: 90.0
@@ -353,7 +361,7 @@
   lat: 4.2758
   lon: 73.5583
   airport_iata: MLE
-  swell_period_min: 13.0
+  swell_peak_period_min: 13.0
   hs_offshore_min: 1.0
   hs_offshore_max: 3.0
   wind_dir_offshore_min: 315.0
@@ -371,7 +379,7 @@
   lat: -17.8500
   lon: 177.1900
   airport_iata: NAN
-  swell_period_min: 12.0
+  swell_peak_period_min: 12.0
   hs_offshore_min: 1.5
   hs_offshore_max: 4.5
   wind_dir_offshore_min: 22.5
@@ -389,7 +397,7 @@
   lat: -17.8552
   lon: -149.2709
   airport_iata: PPT
-  swell_period_min: 13.0
+  swell_peak_period_min: 13.0
   hs_offshore_min: 1.5
   hs_offshore_max: 4.5
   wind_dir_offshore_min: 337.5
@@ -409,7 +417,7 @@
   lat: 6.8361
   lon: 81.8503
   airport_iata: CMB
-  swell_period_min: 11.0
+  swell_peak_period_min: 11.0
   hs_offshore_min: 0.8
   hs_offshore_max: 2.5
   wind_dir_offshore_min: 292.5
@@ -427,7 +435,7 @@
   lat: -20.3281
   lon: 57.3576
   airport_iata: MRU
-  swell_period_min: 12.0
+  swell_peak_period_min: 12.0
   hs_offshore_min: 1.2
   hs_offshore_max: 3.0
   wind_dir_offshore_min: 135.0
@@ -452,7 +460,7 @@
   lat: -38.3784
   lon: 144.2950
   airport_iata: MEL
-  swell_period_min: 11.0
+  swell_peak_period_min: 11.0
   hs_offshore_min: 1.5
   hs_offshore_max: 4.5
   wind_dir_offshore_min: 270.0

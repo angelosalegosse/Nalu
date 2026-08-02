@@ -73,8 +73,13 @@ class Spot(BaseModel):
     lon: float = Field(ge=-180.0, le=180.0)
     airport_iata: str = Field(pattern=r"^[A-Z]{3}$")
 
-    swell_period_min: float = Field(gt=0.0, le=30.0)
-    """Période de pic minimale, en secondes, sous laquelle la houle est trop courte."""
+    swell_peak_period_min: float = Field(gt=0.0, le=30.0)
+    """Période DE PIC minimale, en secondes, sous laquelle la houle est trop courte.
+
+    Nommée `peak` sans ambiguïté possible : c'est la grandeur qu'annoncent les guides
+    de surf, et ce n'est PAS celle qu'Open-Meteo sert. Le modèle convertit via
+    `CONFIG.peak_to_mean_period_ratio` avant de comparer. Confondre les deux rend le
+    spot artificiellement mort — mesuré, puis corrigé, le 2026-08-02."""
 
     hs_offshore_min: float = Field(gt=0.0, le=20.0)
     """Hauteur significative AU LARGE, en mètres, sous laquelle le spot ne marche pas."""

@@ -1,4 +1,4 @@
-# Secrets
+﻿# Secrets
 .env
 
 # Donnees brutes : regenerables par le pipeline d'ingestion, jamais commitees.
@@ -22,6 +22,8 @@ __pycache__/
 *.parquet
 !data/snapshots/*.parquet
 !data/snapshots/**/*.parquet
+# Sorties de scoring : recalculables, mais commitees pour que la demo demarre vite.
+!data/scores/*.parquet
 
 # Ecritures interrompues : jamais commitees, jamais relues comme valides.
 *.partiel

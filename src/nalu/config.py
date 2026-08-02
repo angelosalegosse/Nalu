@@ -42,6 +42,15 @@ class NaluConfig(BaseModel):
     """Pas angulaire du lancer de rayons : 180 rayons par spot, assez fin pour ne
     pas manquer une passe cotiere, assez grossier pour rester instantane."""
 
+    # --- Semantique de la periode (1 parametre) -------------------------------
+
+    peak_to_mean_period_ratio: float = Field(default=0.85, gt=0.0, le=2.0)
+    """Convertit une periode DE PIC (celle qu'annoncent les guides de surf, et donc
+    `swell_peak_period_min` du referentiel) en periode MOYENNE, seule servie par
+    Open-Meteo. Mesure le 2026-08-02 : la periode moyenne mediane est de 10,1 s a
+    Uluwatu et 7,1 s aux Maldives, tres en deca des seuils de pic sources. Valeur
+    usuelle pour un spectre de houle, a valider dans le notebook de l'issue #9."""
+
     # --- Qualite des donnees (1 parametre) ------------------------------------
 
     null_alert_ratio: float = Field(default=0.05, ge=0.0, le=1.0)

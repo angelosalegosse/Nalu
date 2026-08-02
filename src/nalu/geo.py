@@ -29,11 +29,15 @@ r"""Geometrie angulaire et lancer de rayons cotier.
 
 import math
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from shapely.geometry import LineString
 from shapely.geometry.base import BaseGeometry
 
 from nalu.config import CONFIG
+
+if TYPE_CHECKING:
+    import polars as pl
 
 # Rayon volumetrique moyen de la Terre (IUGG). Constante physique, pas un
 # parametre du modele : elle n'a rien a faire dans `config.py`.
@@ -74,6 +78,38 @@ def in_arc(angle: float, start: float, end: float) -> bool:
         return True
     offset = (angle - start) % _FULL_TURN
     return offset <= arc_span(start, end)
+
+
+def in_arc_expr(
+    angle: "pl.Expr | str | float",
+    start: "pl.Expr | str | float",
+    end: "pl.Expr | str | float",
+) -> "pl.Expr":
+    """Jumelle vectorisee de `in_arc`, pour polars. MEME regle, meme fichier.
+
+    Deux chemins de code sont inevitables — un scalaire, un colonnaire — mais ils ne
+    doivent pas vivre a deux endroits : le passage de fenetre par 0 degre est le bug
+    le plus probable du projet. Ils sont donc cote a cote ici, et un test par
+    proprietes verifie qu'ils repondent la meme chose sur des milliers de tirages.
+
+    `start` et `end` peuvent etre des colonnes : chaque spot a sa propre fenetre.
+    """
+    import polars as pl
+
+    def col(x: "pl.Expr | str | float") -> "pl.Expr":
+        if isinstance(x, pl.Expr):
+            return x
+        return pl.col(x) if isinstance(x, str) else pl.lit(float(x))
+
+    angle_e, debut_e, fin_e = col(angle), col(start), col(end)
+
+    plein = (fin_e - debut_e) >= _FULL_TURN
+    # Le modulo de polars suit la convention de Python (le signe du diviseur), donc
+    # (-10) % 360 vaut 350 et non -10. Un test le fige : une bascule de convention
+    # rendrait toutes les fenetres a cheval sur 0 silencieusement fausses.
+    span = (fin_e - debut_e) % _FULL_TURN
+    offset = (angle_e - debut_e) % _FULL_TURN
+    return plein | (offset <= span)
 
 
 def bearing_grid(step_deg: float | None = None) -> list[float]:

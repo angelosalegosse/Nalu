@@ -17,9 +17,55 @@ gh issue view 1          # EPIC : plan complet, modèle, sources, critères d'ac
 gh issue list            # les 8 issues filles, #2 à #10
 ```
 
-**Commencer par l'issue #2 (socle).** Elle débloque tout le reste, y compris l'issue #6 qui porte le seul risque capable de changer la nature du produit.
-
 `TODOS.md` à la racine contient le travail délibérément différé, avec son contexte.
+
+## État au 3 août 2026
+
+| Issue | État |
+|---|---|
+| #2 socle, `config.py`, `geo.py` | ✅ livrée |
+| #3 référentiel 20 spots, fenêtres calculées | ✅ livrée |
+| #4 ingestion Open-Meteo, cache commité | ✅ livrée |
+| #6 sonde de couverture, prix, snapshot | ✅ livrée |
+| #7 surfabilité, climatologie, dispersion | ✅ livrée |
+| #8 score en rangs, curseur, dashboard | ✅ livrée |
+| **#10 déploiement public** | **à faire — sécurise la 3ᵉ contrainte non négociable** |
+| #9 Gemini, notebooks, validation externe | à faire |
+
+`main` est verte, 211 tests. Le pipeline tourne de bout en bout : 20 spots sourcés →
+701 280 heures → 240 probabilités mensuelles → 240 prix → classement réordonnable.
+
+**Reprise conseillée : #10 avant #9.** Le déploiement est court (~30 min) et rend la
+vitrine accessible par un lien ; #9 l'enrichit ensuite sans risque.
+
+## Deux arbitrages ouverts — à trancher avec le porteur, pas seul
+
+1. **Un spot sans prix reçoit le rang 0, ce qui le punit au lieu de le marquer.**
+   En janvier, La Gravière marche 28,3 % des heures diurnes — quarante fois Ponta
+   Preta — mais sort 3ᵉ à `alpha = 0,5` faute de prix. Avec 170 couples sur 240 non
+   couverts, l'axe prix mesure surtout « a un prix », pas « est bon marché » : le biais
+   de popularité mesuré en #6 rentre par la fenêtre, dans le classement lui-même.
+   Options posées : ne rien changer (c'est la spec) · neutraliser le spot non couvert
+   au lieu de le pénaliser · ajouter un filtre « spots couverts uniquement ».
+2. **Sultans et Tres Palmas restent à `p_surf = 0` sur les douze mois.** Diagnostiqué,
+   pas bricolé : l'hypothèse « point de grille abrité » a été testée jusqu'à 100 km au
+   large et **réfutée**. Les seuils de hauteur et de période de ces deux spots sont
+   mal calibrés pour ce que le modèle sert à ces positions. **À trancher dans #9**, qui
+   porte la validation externe et impose d'écrire la métrique d'accord AVANT tout
+   ajustement de seuil. Ne pas les recalibrer avant, ce serait ajuster le modèle pour
+   qu'il produise le résultat attendu.
+
+## Régénérer les artefacts
+
+Tous sont commités ; ces commandes ne servent qu'à les reconstruire.
+
+```bash
+uv run python -m nalu.exposure              # fenêtres de houle (réseau : Natural Earth)
+uv run python -m nalu.ingest.openmeteo      # cache horaire (réseau, ~2300 unités de quota)
+uv run python -m nalu.ingest.flights --collect   # snapshot de prix (réseau, jeton)
+uv run python -m nalu.ingest.flights --check-token
+uv run python -m nalu.scoring.climatology   # 240 + 480 lignes, hors ligne, ~1 s
+```
 
 ## Contraintes non négociables
 
@@ -34,7 +80,8 @@ gh issue list            # les 8 issues filles, #2 à #10
 | `python` local est en **3.14.2** | Pile scientifique instable, erreurs de compilation C | Épingler **Python 3.12** via `uv` |
 | `python3` renvoie le raccourci Microsoft Store | Échec silencieux ou message absurde | **Ne jamais écrire `python3`** dans un script, un README ou une CI |
 | `jq` est **absent** | Tout script qui en dépend échoue | Sérialiser le JSON avec Python |
-| `uv` est **absent** | — | À installer en premier (issue #2) |
+| **Proxy TLS d'entreprise** | `uv sync` échoue sur `invalid peer certificate: UnknownIssuer`, et Python sur `CERTIFICATE_VERIFY_FAILED` | `uv sync --system-certs`. Côté Python, `nalu.net.use_system_trust_store()` (via `truststore`) est déjà appelé par tout ce qui sort sur le réseau |
+| `uv` était absent | — | Installé, version 0.12.1, dans `~/.local/bin` (pas toujours dans le `PATH` d'un shell neuf) |
 
 ## Décisions verrouillées — ne pas rouvrir sans raison explicite
 
@@ -51,15 +98,17 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 - **Fenêtres directionnelles calculées**, pas déclarées : lancer de rayons sur les côtes Natural Earth. Override manuel possible mais `override_reason` obligatoire.
 - **20 spots, pas 50.** Chacun avec `source` et `confidence` obligatoires. Les seuils sont l'actif central du produit et doivent être auditables.
 - **Client Open-Meteo officiel** (`openmeteo-requests` + `requests-cache` + `retry-requests`). **Ne pas écrire de client HTTP ni de backoff maison.**
-- **Le quota Open-Meteo est pondéré** : `(variables / 10) x (jours / 14) x localisations`. Environ 5 200 unités pour un remplissage à froid. Plafonds 600/min, 5 000/h, 10 000/jour. Grouper les spots réduit la latence, **pas** le quota.
+- **Le quota Open-Meteo est pondéré** : `(variables / 10) x (jours / 14) x localisations`. Plafonds 600/min, 5 000/h, 10 000/jour. Grouper les spots réduit la latence, **pas** le quota. *Mesuré sur le remplissage réel du 2026-08-02 : **2 296 unités, 8 requêtes, 196 s** — les 5 200 du plan visaient 10 ans. Les pauses ont été déclenchées par le plafond **par minute**, pas l'horaire.*
+- **Le référentiel est restreint aux spots couverts, pas réduit.** *Décidé après la sonde du 2026-08-02 : **15 destinations couvertes sur 20**, corrélation de rangs couverture ↔ popularité **+0,78**.* Les 5 non couvertes (Klitmøller, Thurso East, Jeffreys Bay, Zicatela, Chicama) sont exactement les 5 de popularité minimale. La restriction porte sur **l'axe prix**, jamais sur le référentiel : les 20 spots restent affichés et marqués. Les supprimer laisserait le biais décider du contenu du produit.
 - **Amadeus Self-Service est mort** (portail fermé le 17 juillet 2026). Toute documentation en ligne le recommandant est périmée. Ne pas y perdre de temps.
 
 ## Interdits techniques
 
 - **Aucune boucle ligne à ligne** dans `scoring/`. Expressions polars vectorisées uniquement, vérifié par un test de performance.
-- **Aucune constante en dur** hors de `nalu/config.py`. Les onze paramètres du modèle y vivent, chacun suivi de la phrase qui le justifie.
-- **`in_arc()` n'existe qu'une fois**, dans `nalu/geo.py`. Le passage de fenêtre par 0 degré est le bug le plus probable du projet.
-- **Aucun secret commité.** `.env` dans `.gitignore`, `.env.example` documente les variables, toutes optionnelles.
+- **Aucune constante en dur** hors de `nalu/config.py`. Les **douze** paramètres du modèle y vivent, chacun suivi de la phrase qui le justifie. Un test compte les champs : en ajouter un sans justification échoue.
+- **`in_arc()` n'existe qu'une fois**, dans `nalu/geo.py`. Le passage de fenêtre par 0 degré est le bug le plus probable du projet. Sa jumelle vectorisée `in_arc_expr()` vit **dans le même fichier**, et un test par propriétés sur 600 tirages prouve qu'elles ne divergent pas.
+- **Aucun secret commité.** `.env` dans `.gitignore`, `.env.example` documente les variables, toutes optionnelles. ⚠️ **Le jeton va dans `.env`, jamais dans `.env.example`** — ce dernier est versionné. Vérifier avec `uv run python -m nalu.ingest.flights --check-token`, qui n'affiche jamais la valeur.
+- **Tout ce qui est commité dans `data/` doit avoir son exception dans `.gitignore`.** La règle `*.parquet` capte tout par défaut. Un artefact oublié passe les tests en local et casse la CI — arrivé une fois avec `data/world_outline.parquet`.
 
 ## Stack
 
@@ -68,15 +117,34 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 ## Testing
 
 ```bash
-uv run pytest          # tests
+uv run pytest          # 211 tests, ~5 s
 uv run ruff check      # lint
-uv run streamlit run src/nalu/app.py
+uv run streamlit run src/nalu/app.py    # http://localhost:8501
 ```
 
-Trois tests portent le plus de valeur et ne doivent jamais être supprimés :
-1. **Invariance aux extrêmes** (`hypothesis`) : ajouter un prix aberrant ne change pas l'ordre des autres. C'est la preuve du passage aux rangs centiles.
-2. **Démarrage sans réseau** (`pytest-socket`) : protège la promesse centrale de la démo.
-3. **Intégrité du cache** : un cache partiel produit un classement faux et plausible. Le pipeline doit échouer en nommant le spot et l'année manquants.
+Quatre tests portent le plus de valeur et ne doivent jamais être supprimés :
+1. **Invariance aux extrêmes** (`hypothesis`, `tests/test_combine.py`) : ajouter un prix aberrant ne change pas l'ordre des autres. C'est la preuve du passage aux rangs centiles. Une contre-épreuve documente ce que min-max aurait fait.
+2. **Démarrage sans réseau** (`pytest-socket`) : protège la promesse centrale de la démo. La CI clone à froid et exécute ces tests contre le cache commité, donc la promesse est vérifiée à chaque push sur une machine neuve.
+3. **Intégrité du cache** (`verify_cache_integrity`) : un cache partiel produit un classement faux et plausible. Le pipeline échoue en nommant le spot **et** l'année.
+4. **Accord des deux `in_arc`** (`tests/test_surf.py`) : sans lui, deux implémentations d'une règle unique divergeraient en silence.
+
+**Regarder le rendu, pas seulement les tests.** Trois défauts d'interface sur trois
+sont passés au travers de la suite et n'ont été trouvés qu'en ouvrant la page :
+marqueurs invisibles, couleur de statut détournée en accent, artefact non versionné.
+
+## Dataviz
+
+Les couleurs du dashboard viennent du skill `dataviz` et sont passées au validateur
+(bande de clarté, chroma, séparation daltonisme, contraste) — jamais choisies à l'œil.
+Elles vivent dans `CLAIR` / `SOMBRE` en tête de `src/nalu/app.py` et dans
+`.streamlit/config.toml`. **Invoquer `/dataviz` avant d'écrire le moindre graphique.**
+
+Le rouge est une couleur de **statut** dans ce système : ne pas l'utiliser comme accent
+d'interface, sous peine qu'un curseur soit lu comme une alerte.
+
+Le planisphère est versionné (`data/world_outline.parquet`, 17 Ko) parce que
+`scatter_geo` de Plotly télécharge sa topologie depuis un CDN : sans lui, carte vide
+hors ligne.
 
 ## Skill routing
 

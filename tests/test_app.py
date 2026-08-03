@@ -11,6 +11,7 @@ import pytest
 from nalu import app
 from nalu.app import CLAIR, MOIS, MOIS_COURT, SANS_PRIX, SOMBRE, carte, saisonnalite
 from nalu.coastline import CONTOUR_PATH
+from nalu.paths import RACINE
 from nalu.scoring.combine import classement, construire_tableau
 
 
@@ -148,6 +149,75 @@ def test_les_spots_sans_prix_se_rangent_en_fin_de_tri(affichage) -> None:
 
     assert cases[-1] == SANS_PRIX
     assert cases[0] != SANS_PRIX
+
+
+# ─── La sparkline du podium ───────────────────────────────────────────────────
+
+
+@pytest.mark.disable_socket
+def test_l_etincelle_couvre_les_douze_mois(tableau) -> None:
+    serie = tableau.filter(pl.col("spot_id") == "uluwatu").sort("month")
+    figure = app.etincelle(serie, mois_actif=1, c=CLAIR)
+
+    assert len(figure.data[0].x) == 12
+    assert len(set(figure.data[0].marker.color)) == 2, "le mois choisi doit ressortir"
+
+
+@pytest.mark.disable_socket
+def test_l_etincelle_porte_une_ligne_de_base(tableau) -> None:
+    """Sans elle, un mois a zero se lit comme une donnee manquante.
+
+    Elle est dessinee comme une FORME : `showline` sur l'axe ne produit rien dans
+    cette configuration, verifie dans le DOM ou le groupe d'axe restait vide. Ce test
+    existe parce que la difference est invisible a la lecture du code.
+    """
+    serie = tableau.filter(pl.col("spot_id") == "ponta-preta").sort("month")
+    if serie.height == 0:  # le referentiel a bouge : prendre n'importe quel spot
+        serie = tableau.filter(pl.col("spot_id") == tableau["spot_id"][0]).sort("month")
+    figure = app.etincelle(serie, mois_actif=1, c=CLAIR)
+
+    lignes = [f for f in figure.layout.shapes if f.type == "line" and f.y0 == 0 and f.y1 == 0]
+    assert len(lignes) == 1, "la ligne de base a disparu"
+
+
+# ─── Les polices doivent etre AUTO-HEBERGEES et presentes ─────────────────────
+#
+# Une URL fautive ou distante ne leve jamais : la page retombe en silence sur une
+# fonte systeme. Le defaut serait donc invisible en local, et visible seulement le
+# jour d'une demo sans reseau — exactement ce que la promesse hors ligne protege.
+
+
+def test_chaque_police_declaree_existe_dans_le_depot() -> None:
+    import tomllib
+
+    config = tomllib.loads((RACINE / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+    faces = config["theme"]["fontFaces"]
+
+    assert faces, "aucune police declaree : le theme typographique est perdu"
+    for face in faces:
+        chemin = RACINE / "src" / "nalu" / face["url"].replace("app/static/", "static/")
+        assert chemin.exists(), f"police absente du depot : {face['url']}"
+
+
+def test_aucune_police_n_est_chargee_depuis_un_cdn() -> None:
+    """Une police distante casse la demo hors ligne, et seulement celle-la."""
+    import tomllib
+
+    config = tomllib.loads((RACINE / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+
+    for face in config["theme"]["fontFaces"]:
+        assert not face["url"].startswith(("http://", "https://")), face["url"]
+    for cle in ("font", "headingFont"):
+        assert "http" not in config["theme"][cle], cle
+
+
+def test_le_service_de_fichiers_statiques_est_actif() -> None:
+    """Sans lui, `app/static/` ne repond pas et les polices tombent en silence."""
+    import tomllib
+
+    config = tomllib.loads((RACINE / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+
+    assert config["server"]["enableStaticServing"] is True
 
 
 # ─── Le planisphère ne doit pas déborder de sa boîte ───────────────────────────

@@ -85,12 +85,20 @@ foi du `303`, et fait chercher un réglage inexistant.
    déprécié (sans effet). La carte étant verrouillée en proportions, le vide ne
    disparaît donc **qu'à une seule largeur**, vers 1415 px :
 
-   | viewport | carte | vide sous la carte | vide à droite |
+   ⚠️ **Ces mesures ont changé le 2026-08-04** : le passage des contrôles dans le rail
+   latéral retire 300 px à la largeur du contenu, donc déplace le vide. Mesuré avant
+   et après, aux mêmes quatre largeurs :
+
+   | viewport | carte (après) | vide sous — avant → après | vide à droite — avant → après |
    |---|---|---|---|
-   | 390 | 358×131 | **329 px** | 0 |
-   | 1280 | 1120×411 | 49 px | 0 |
-   | 1920 | 1255×460 | 0 | **505 px** |
-   | 2560 | 1255×460 | 0 | **1145 px** |
+   | 390 | 358×131 | 329 → **329** | 0 → 0 |
+   | 1280 | 820×301 | 49 → **159** | 0 → 0 |
+   | 1920 | 1255×460 | 0 → 0 | 505 → **205** |
+   | 2560 | 1255×460 | 0 → 0 | 1145 → **845** |
+
+   **Le rail n'est donc pas une victoire nette :** il retire 300 px de vide à droite
+   sur grand écran, et en ajoute 110 sous la carte à 1280. Mobile est inchangé.
+   L'arbitrage reste entier, avec des nombres différents.
 
    « Pleine largeur **et** hauteur qui suit » n'est pas atteignable. Essayé et
    **annulé** : la carte grandissait à 533 px pendant que le bloc restait à 460, donc
@@ -140,7 +148,10 @@ src/nalu/
   exposure.py     lancer de rayons -> fenetres de houle calculees
   net.py          magasin de certificats systeme (proxy TLS)
   validation.py   metrique d'accord + seuils, ECRITS AVANT la mesure
-  app.py          dashboard Streamlit
+  app.py          dashboard Streamlit — podium(), etincelle(), table_affichee()
+                  sont extraits de main() pour etre testables
+  static/fonts/   Fraunces + Inter en woff2, AUTO-HEBERGES, avec leurs licences
+                  OFL. Servis sous app/static/ via server.enableStaticServing
   ingest/         openmeteo.py (cache horaire), flights.py (prix)
   scoring/        surf.py, climatology.py, combine.py
   llm/            commentary.py — Gemini, optionnel, degrade toujours
@@ -209,7 +220,7 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 ## Testing
 
 ```bash
-uv run pytest              # 293 tests, ~24 s (dont ~17 s de notebooks)
+uv run pytest              # 298 tests, ~25 s (dont ~17 s de notebooks)
 uv run pytest -m "not slow"  # boucle courte : saute l'execution des notebooks
 uv run ruff check          # lint — il inspecte AUSSI les .ipynb
 uv run streamlit run src/nalu/app.py    # http://localhost:8501
@@ -296,6 +307,29 @@ de couleur et pour la même raison : à l'extérieur elle coûterait de la large
 *Open Sans* et Streamlit en *Source Sans* : deux typographies sur un même écran,
 mesurées dans le DOM. `POLICE_FIGURE` dans `app.py` les réunit — la palette était déjà
 partagée, la police ne l'était pas.
+
+**Streamlit 1.59 permet une vraie identité typographique, sans une ligne de CSS.**
+J'avais écrit l'inverse, c'était faux. Le thème expose `font`, `headingFont`,
+`headingFontSizes`, `headingFontWeights`, `baseRadius`, et surtout **`fontFaces`**,
+qui déclare des polices auto-hébergées. **Fraunces** pour les titres, **Inter** pour le
+texte, décidés avec le porteur le 2026-08-04 sur un brief explicite : « c'est beau,
+j'ai envie de jouer ».
+
+Les fichiers sont **commités**, jamais appelés sur un CDN — une police distante
+retomberait sur une fonte système exactement le jour d'une démo sans réseau. Trois
+tests le verrouillent : chaque `url` déclarée existe dans le dépôt, aucune ne commence
+par `http`, et `server.enableStaticServing` reste actif. Sans ce dernier, `app/static/`
+ne répond pas et la page retombe **en silence**.
+
+Les plages Unicode viennent de Google Fonts et sont reprises telles quelles : le
+navigateur ne télécharge le sous-ensemble étendu que si un glyphe l'exige — vérifié,
+il ne l'est pas aujourd'hui.
+
+**La ligne de base d'une sparkline se dessine comme une FORME, pas comme un axe.**
+`showline` sur l'axe ne produit rien dans cette configuration — vérifié dans le DOM,
+le groupe d'axe reste vide — et une marge basse à zéro rogne de toute façon le trait.
+Sans elle, un mois à `p_surf = 0` se lit comme une donnée manquante et non comme un
+zéro, ce qui arrive sur la moitié des spots.
 
 **Ne jamais abréger un mois par troncature.** À quatre lettres on obtient « avri »,
 « octo », « nove », « déce », qui se lisent comme des fautes ; à trois, « juin » et

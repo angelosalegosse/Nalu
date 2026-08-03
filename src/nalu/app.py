@@ -255,6 +255,82 @@ def saisonnalite(serie: pl.DataFrame, mois_actif: int, c: dict) -> go.Figure:
     return figure
 
 
+def etincelle(serie: pl.DataFrame, mois_actif: int, c: dict) -> go.Figure:
+    """Les douze mois d'un spot, en miniature, sans axe ni graduation.
+
+    C'est la version dense de `saisonnalite()` : posée dans une carte de podium, elle
+    répond à « et les autres mois ? » sans un clic ni une ligne de texte. Le mois
+    choisi est la seule barre à pleine teinte, donc on voit d'un coup si on tombe sur
+    la saison ou à côté. Les axes sont retirés parce qu'à 54 px ils ne se lisent pas :
+    l'ordre des mois est porté par la légende textuelle sous la figure.
+    """
+    couleurs = [c["serie"] if m == mois_actif else c["serie_attenuee"] for m in serie["month"]]
+    figure = go.Figure(
+        go.Bar(
+            x=[MOIS_COURT[m - 1] for m in serie["month"]],
+            y=serie["p_surf"] * 100,
+            marker={"color": couleurs, "line": {"width": 0}},
+            hovertemplate="%{x} — %{y:.1f} % des heures diurnes<extra></extra>",
+        )
+    )
+    figure.update_layout(
+        paper_bgcolor=c["surface"], plot_bgcolor=c["surface"],
+        # `b` non nul : la ligne de base se dessine sur la derniere rangee de pixels et
+        # se fait rogner par une marge a zero. Trois pixels suffisent a la rendre.
+        margin={"l": 0, "r": 0, "t": 0, "b": 3}, height=54, bargap=0.3,
+        font={"family": POLICE_FIGURE, "color": c["encre_2"]},
+        showlegend=False,
+        xaxis={"visible": False},
+        yaxis={"visible": False, "rangemode": "tozero"},
+        hoverlabel={"bgcolor": c["surface"], "font": {"color": c["encre"]}},
+    )
+    # Ligne de base dessinée comme une FORME, pas comme un axe : plusieurs spots sont
+    # à zéro une partie de l'année, et sans trait le mois vide se lit comme une donnée
+    # manquante au lieu d'un zéro. `showline` sur l'axe ne produit rien dans cette
+    # configuration — vérifié dans le DOM, le groupe d'axe reste vide — alors qu'une
+    # forme est dessinée sans condition.
+    figure.add_shape(
+        type="line", xref="paper", yref="y", x0=0, x1=1, y0=0, y1=0,
+        line={"color": c["encre_muette"], "width": 1},
+    )
+    return figure
+
+
+def podium(classement: pl.DataFrame, tableau: pl.DataFrame, mois: int, c: dict) -> None:
+    """Les trois premiers en grand, avant le tableau. Extrait de `main()` pour être testable.
+
+    Le tableau est le livrable du MODÈLE — treize colonnes traçables, et c'est ce qui
+    rend le classement auditable. Ce n'est pas le livrable du PRODUIT : les vingt lignes
+    sont Teahupo'o, Cloudbreak, Pipeline, des endroits dont on rêve, et les rendre en
+    flottants n'en donne aucune envie. Le podium porte le désir, le tableau porte la
+    preuve, et la preuve reste entière un écran plus bas.
+    """
+    trois = classement.head(3).iter_rows(named=True)
+    for colonne, ligne in zip(st.columns(3), trois, strict=False):
+        with colonne, st.container(border=True):
+            st.caption(f"{ligne['rang']} · {ligne['country']}")
+            st.subheader(ligne["name"])
+
+            gauche, droite = st.columns(2)
+            gauche.metric(
+                "heures surfables",
+                f"{ligne['p_surf'] * 100:.1f} %".replace(".", ","),
+            )
+            droite.metric(
+                "aller-retour",
+                SANS_PRIX if ligne["price_eur"] is None else f"{ligne['price_eur']:.0f} €",
+            )
+
+            serie = tableau.filter(pl.col("spot_id") == ligne["spot_id"]).sort("month")
+            st.plotly_chart(
+                etincelle(serie, mois, c),
+                use_container_width=True,
+                config={"displayModeBar": False},
+                key=f"etincelle_{ligne['spot_id']}",
+            )
+            st.caption("janv → déc")
+
+
 def table_affichee(classement: pl.DataFrame) -> pl.DataFrame:
     """Le tableau tel qu'il est peint. Extrait de `main()` pour être testable.
 
@@ -316,12 +392,14 @@ def main() -> None:
         f"prix des vols au départ de {CONFIG.origin_iata}."
     )
 
-    gauche, droite = st.columns([1, 2])
-    with gauche:
+    # Les deux contrôles vivent dans le rail, motif des explorateurs de données : le
+    # premier écran appartient alors à la RÉPONSE, pas au formulaire. Effet de bord
+    # mesuré et voulu : le rail réduit la largeur offerte au planisphère sur grand
+    # écran, donc le vide à sa droite.
+    with st.sidebar:
         mois = st.selectbox(
             "Mois de départ", range(1, 13), format_func=lambda m: MOIS[m - 1].capitalize()
         )
-    with droite:
         alpha = st.slider(
             "Le billet le moins cher  ←→  la meilleure vague",
             0.0, 1.0, 0.5, 0.05,
@@ -331,6 +409,9 @@ def main() -> None:
     # Une seule implémentation du classement, partagée avec les tests : l'ordre affiché
     # est exactement celui qu'ils vérifient.
     classement = classer(tableau, mois, alpha)
+
+    st.header(f"Où partir en {MOIS[mois - 1]}")
+    podium(classement, tableau, mois, c)
 
     st.html(style_planisphere())
     with st.container(key="planisphere"):

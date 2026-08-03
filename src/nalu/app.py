@@ -16,6 +16,8 @@ import streamlit as st
 
 from nalu.coastline import CONTOUR_PATH
 from nalu.config import CONFIG
+from nalu.llm.commentary import MODELE, commenter
+from nalu.palette import CLAIR, SOMBRE
 from nalu.scoring.climatology import QUINZAINES_PATH
 from nalu.scoring.combine import classement as classer
 from nalu.scoring.combine import construire_tableau, fraicheur_du_snapshot
@@ -25,32 +27,8 @@ MOIS = [
     "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ]
 
-# Palette issue du systeme de dataviz, validee : ecarts CVD et contrastes controles
-# par le validateur, pas juges a l'oeil. Les pas sombres sont choisis POUR la surface
-# sombre, ce n'est pas une inversion automatique de la palette claire.
-CLAIR = {
-    "surface": "#fcfcfb",
-    "encre": "#0b0b0b",
-    "encre_2": "#52514e",
-    "encre_muette": "#898781",
-    "grille": "#e1e0d9",
-    "serie": "#2a78d6",
-    "serie_attenuee": "#b7d3f6",
-    "rampe": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#104281"],
-    "terre": "#e1e0d9",
-}
-SOMBRE = {
-    "surface": "#1a1a19",
-    "encre": "#ffffff",
-    "encre_2": "#c3c2b7",
-    "encre_muette": "#898781",
-    "grille": "#2c2c2a",
-    "serie": "#3987e5",
-    "serie_attenuee": "#1c5cab",
-    "rampe": ["#104281", "#184f95", "#256abf", "#3987e5", "#6da7ec", "#9ec5f4"],
-    "terre": "#2c2c2a",
-}
-
+# La palette vit dans `nalu/palette.py` : les notebooks de l'issue #9 peignent les
+# mêmes graphiques et ne doivent pas charger Streamlit pour connaître un bleu.
 
 # Cadrage du planisphère. Les bornes de latitude coupent l'Antarctique et le haut de
 # l'Arctique, où le référentiel n'a aucun spot : les garder écraserait la bande utile.
@@ -247,6 +225,24 @@ def main() -> None:
         "**Intensité** est informative : elle n'entre pas dans le score. "
         "**Le rang prix vaut 0** pour un spot non couvert — il reste affiché."
     )
+
+    # Bloc commentaire : la seule partie de la page qui dépend d'un service tiers, et
+    # la seule qui ait le droit de manquer. `commenter()` ne lève jamais — sans clé,
+    # sans réseau ou sur quota dépassé, elle renvoie une raison affichable.
+    #
+    # `st.caption` et non `st.info` pour l'indisponibilité : le bleu est la couleur
+    # d'ACCENT de ce système, comme le rouge en est la couleur de statut. Peindre une
+    # absence bénigne en bleu la ferait lire comme une information saillante.
+    lecture = commenter(classement, mois, alpha)
+    if lecture.disponible:
+        with st.container(border=True):
+            st.markdown(f"**Lecture des résultats** — {lecture.texte}")
+            st.caption(
+                f"Commentaire généré par {MODELE}. Il lit le tableau ci-dessus et le "
+                "met en mots : **aucun chiffre affiché ne vient de lui.**"
+            )
+    else:
+        st.caption(lecture.texte)
 
     choix = st.selectbox("Saisonnalité d'un spot", classement["name"].to_list())
     spot_id = classement.filter(pl.col("name") == choix)["spot_id"][0]

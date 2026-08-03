@@ -43,15 +43,15 @@ dessous. Chaque issue fille est fermée avec le commit qui l'a livrée.
 **→ https://nalu-surf.streamlit.app** — vérifiée ouverte à un visiteur anonyme.
 Streamlit Cloud redéploie à chaque push sur `main`.
 
-`main` est verte, 298 tests. Le pipeline tourne de bout en bout : 20 spots sourcés →
-701 280 heures → 240 probabilités mensuelles → 240 prix → classement réordonnable,
-commenté par Gemini quand une clé est posée.
+`main` est verte, **310 tests**, poussée et déployée (`aa149cc`). Le pipeline tourne de
+bout en bout : 20 spots sourcés → 701 280 heures → 240 probabilités mensuelles →
+240 prix → classement réordonnable, commenté par Gemini quand une clé est posée.
 
 **Le plan est complet.** Il ne reste aucune issue ouverte.
 
 ### Ce qui a été fait le 4 août, hors plan
 
-Deux passes de design, dans cet ordre — la seconde n'aurait rien valu sans la première.
+Trois passes, dans cet ordre — chacune n'aurait rien valu sans la précédente.
 
 1. **Passe de défauts** (`df77fe3`). Sept défauts trouvés en ouvrant la page, aucun
    attrapé par les 287 tests : deux classes de marqueurs sans légende · `None` affiché
@@ -63,6 +63,15 @@ Deux passes de design, dans cet ordre — la seconde n'aurait rien valu sans la 
    ouvertes et mesurées — Our World in Data pour la structure, Nomad List pour le
    désir, The Pudding pour l'artisanat. D'où : Fraunces + Inter, contrôles dans le rail
    latéral, et un **podium** de trois cartes avant le tableau.
+3. **Passe de lisibilité** (`aa149cc`), sur un second retour du porteur : *les données du
+   dashboard ne sont pas très compréhensibles — on comprend mal pourquoi Ponta Preta
+   sort première avec 0,7 % d'heures surfables, et « P_surf % » ne veut rien dire.*
+   D'où : libellés de colonnes en français avec l'explication complète en infobulle
+   (`AIDES_COLONNES`), une ligne de lecture sous chaque carte du podium
+   (`moteur_du_rang()` nomme celui des deux rangs qui porte le score), un guide replié
+   au-dessus du tableau (`guide_de_lecture()`) et une section complète du README.
+   **La colonne `Q` a été retirée** sur décision du porteur : `Q = p_surf`, elle peignait
+   `0,007` en face du `0,7` de « Surfable % ». Aucun chiffre affiché n'a changé.
 
 **Le principe qui en sort, et qui doit survivre :** le tableau est le livrable du
 **modèle**, pas celui du **produit**. Les vingt lignes sont Teahupo'o, Cloudbreak,
@@ -146,7 +155,46 @@ foi du `303`, et fait chercher un réglage inexistant.
    **le vide sous la carte n'est plus adjacent au tableau** mais à un bloc de cartes,
    donc il se voit moins — le mesurer à l'œil avant de coder quoi que ce soit.
 
-## Autre point en suspens — toujours ouvert au 4 août
+## Deux points en suspens au 4 août
+
+### 1. ⚠️ BUG OUVERT — la typographie n'est appliquée nulle part
+
+**Mesuré le 2026-08-04, en local ET sur le site public.** Les quatre `woff2` déclarés
+dans `theme.fontFaces` ne sont **jamais servis** : `/app/static/fonts/<n'importe quoi>`
+renvoie l'`index.html` de Streamlit au lieu du fichier. `document.fonts` rapporte
+`Fraunces:error` et `Inter:error`, et la page retombe sur `serif` / `sans-serif`.
+**Fraunces et Inter ne sont donc pas visibles**, alors que tout le reste de ce fichier
+raconte le contraire — c'est la direction visuelle du 4 août qui ne s'affiche pas.
+
+Ce qui a été écarté, mesure à l'appui, pour ne pas le refaire :
+
+- les six fichiers sont commités et présents dans `HEAD` ;
+- `.streamlit/config.toml` est correct et **lu** — les `font-family` arrivent bien dans
+  le DOM (`Fraunces, serif` sur les `h1`), seul le fichier manque ;
+- `server.enableStaticServing` vaut `True` ;
+- la route est bien enregistrée : `/app/static/{path:path}`, méthodes `GET`/`HEAD` ;
+- `get_app_static_dir()` et `build_safe_abspath()` résolvent le bon chemin, existant ;
+- ce n'est **ni Windows ni le local** : Cloud se comporte à l'identique ;
+- un fichier posé **à la racine** de `src/nalu/static/` renvoie lui aussi la page
+  d'accueil, donc ce n'est pas un problème de sous-dossier.
+
+Reproduction en une commande, avec l'application lancée :
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{size_download} %{content_type}\n" \
+  http://localhost:8501/app/static/fonts/Inter-latin.woff2
+# attendu : 200 72920 font/woff2   —   obtenu : 200 6602 text/html
+```
+
+Reste à trancher : régression de la route statique dans Streamlit **1.59.1**, ou option
+que Cloud et le local ignorent tous deux. Prochaine étape : `/investigate`.
+
+**Et le test qui manquait.** Les trois tests de police vérifient que les `url` déclarées
+existent dans le dépôt et ne sont pas distantes — jamais **qu'elles répondent**. Le
+défaut est tombé exactement dans cet angle mort. Ajouter un test qui démarre le serveur
+et vérifie le `content-type` et la taille de la réponse, quelle que soit l'issue du bug.
+
+### 2. Le devcontainer
 
 `.devcontainer/devcontainer.json`, ajouté par Streamlit Cloud au déploiement, épingle
 **Python 3.11** et installe un `requirements.txt` inexistant via `pip`. Le projet
@@ -161,15 +209,18 @@ qui marche est un argument de plus ; un dossier supprimé n'est rien. Non fait.
 
 ## Par où reprendre
 
-Aucune issue ouverte, aucun code en attente. Ce qui reste est une liste de **décisions**,
-par ordre de rapport valeur/effort :
+Aucune issue ouverte, aucun code en attente, arbre de travail propre. Il reste **un bug**
+puis une liste de **décisions** :
 
-1. **Arbitrage n°1** — le rang 0 d'un spot sans prix. Le moins cher à décider, le plus
+1. **Le bug des polices** (`/investigate`). Le seul vrai défaut ouvert, et le seul qui
+   dégrade ce qu'un prospect voit : la direction visuelle décidée le 4 août ne s'affiche
+   pas. Reproduction en une commande, six pistes déjà écartées. **Commencer par là.**
+2. **Arbitrage n°1** — le rang 0 d'un spot sans prix. Le moins cher à décider, le plus
    visible dans le produit, et le changement serait chirurgical.
-2. **Le devcontainer** — dix minutes, aucune décision de modèle.
-3. **Arbitrage n°2** — le recalibrage du seuil de période. Le plus lourd : sourçage
+3. **Le devcontainer** — dix minutes, aucune décision de modèle.
+4. **Arbitrage n°2** — le recalibrage du seuil de période. Le plus lourd : sourçage
    spot par spot, puis rejouer le notebook 02.
-4. **Arbitrage n°3** — le vide du planisphère. Le pire rapport effort/bénéfice, et le
+5. **Arbitrage n°3** — le vide du planisphère. Le pire rapport effort/bénéfice, et le
    podium l'a déjà rendu moins saillant.
 
 ## Régénérer les artefacts
@@ -255,7 +306,7 @@ notebooks/     01 houle · 02 validation externe · 03 vols — commites AVEC so
 | `uv` était absent | — | Installé, version 0.12.1, dans `~/.local/bin` (pas toujours dans le `PATH` d'un shell neuf) |
 | Le **navigateur headless** de `/browse` redémarre entre deux commandes et retombe sur `about:blank` | Toute mesure DOM prise dans un appel séparé est fausse, et silencieusement | Enchaîner `viewport`, `goto`, `wait`, `js` et `screenshot` **dans un seul appel Bash**. Une page blanche est presque toujours l'outil, pas le site |
 | Streamlit **fige la hauteur du bloc** d'un graphique depuis `figure.layout.height` | Le CSS peut agrandir le tracé mais pas le bloc : le graphique passe **sous** l'élément suivant | Ne jamais compter sur le CSS pour rendre une hauteur responsive. Voir l'arbitrage n°3 |
-| **Les polices ne se chargent PAS sur l'instance locale**, alors qu'elles se chargent sur le déployé | `/app/static/fonts/*.woff2` renvoie **l'`index.html` de Streamlit** (6 602 octets, `text/html`) au lieu du fichier (72 920 octets sur le disque). `document.fonts` rapporte `Fraunces:error` et `Inter:error`, et la page retombe sur `serif` / `sans-serif` — **en silence**, comme toujours avec une police | **Ne pas conclure à une régression du dépôt.** Vérifié le 2026-08-04 : les six fichiers sont commités, `.streamlit/config.toml` est correct, `enableStaticServing` vaut `True`, `get_app_static_dir()` et `build_safe_abspath()` résolvent le bon chemin existant. La route `app/static/{path:path}` ne matche simplement pas dans le serveur Uvicorn/Starlette de Streamlit **1.59.1** sur cette machine. Le déployé, lui, rend bien Fraunces + Inter. Le signal fiable est `document.fonts`, pas l'œil : un fallback serif ressemble à Fraunces au premier coup d'œil |
+| **Les polices ne se chargent NULLE PART** — ni en local, ni sur le déployé | `/app/static/fonts/*.woff2` renvoie **l'`index.html` de Streamlit** au lieu du fichier : 6 602 octets de `text/html` en local, 5 843 sur Cloud, contre 72 920 octets sur le disque. `document.fonts` rapporte `Fraunces:error` et `Inter:error`, et la page retombe sur `serif` / `sans-serif` — **en silence**, comme toujours avec une police | Voir le point en suspens n°1. **Le signal fiable est `document.fonts` ou la TAILLE de la réponse, jamais l'œil** : un repli `serif` ressemble assez à Fraunces pour tromper. J'ai d'abord conclu « le local est cassé, le déployé va bien » **sans mesurer le déployé** — c'était faux, les deux sont identiques |
 | La **« magie » de Streamlit affiche toute expression seule sur sa ligne** | Une docstring de constante dans `app.py` — la forme employée partout ailleurs, et notamment dans `combine.py` — est **peinte en haut de la page, au-dessus du titre**. Arrivé le 2026-08-04 avec `ECART_EGALITE` | Dans `app.py` **et lui seul**, les constantes se documentent en **commentaire**. `app.py` est le script exécuté, pas un module importé. Aucun test ne peut le voir, le module s'important parfaitement : `test_aucune_chaine_seule_au_niveau_module_de_l_app` lit l'AST |
 
 ## Décisions verrouillées — ne pas rouvrir sans raison explicite
@@ -299,7 +350,7 @@ uv run ruff check          # lint — il inspecte AUSSI les .ipynb
 uv run streamlit run src/nalu/app.py    # http://localhost:8501
 ```
 
-Huit tests portent le plus de valeur et ne doivent jamais être supprimés :
+Dix tests portent le plus de valeur et ne doivent jamais être supprimés :
 1. **Invariance aux extrêmes** (`hypothesis`, `tests/test_combine.py`) : ajouter un prix aberrant ne change pas l'ordre des autres. C'est la preuve du passage aux rangs centiles. Une contre-épreuve documente ce que min-max aurait fait.
 2. **Démarrage sans réseau** (`pytest-socket`) : protège la promesse centrale de la démo. La CI clone à froid et exécute ces tests contre le cache commité, donc la promesse est vérifiée à chaque push sur une machine neuve.
 3. **Intégrité du cache** (`verify_cache_integrity`) : un cache partiel produit un classement faux et plausible. Le pipeline échoue en nommant le spot **et** l'année.
@@ -307,7 +358,9 @@ Huit tests portent le plus de valeur et ne doivent jamais être supprimés :
 5. **Scan de secrets sur l'historique** (`tests/test_secrets.py`) : le dépôt est public, et ça ne se défait pas. La CI clone en `fetch-depth: 0`, sinon le scan n'aurait qu'un commit à lire et passerait vert sans rien vérifier. Le fichier **s'exclut lui-même** du scan : ses échantillons de contre-épreuve sont des formes de secrets. Même précaution que l'étape `python[3]` de `ci.yml`.
 6. **La métrique de validation sait échouer** (`tests/test_validation.py`) : une contre-épreuve vérifie qu'elle n'est pas inerte, et qu'un spot sans pic compte comme un **échec** et non comme une exclusion. C'est ce qui empêche de faire réussir la validation en écartant ce qui la gêne.
 7. **Dégradation de la couche IA** (`tests/test_commentary.py`) : clé absente, clé refusée, réseau coupé, réponse vide. Aucune ne doit lever, et l'avertissement ne doit jamais contenir la clé.
-8. **Les polices sont auto-hébergées et présentes** (`tests/test_app.py`) : chaque `url` déclarée dans `fontFaces` existe dans le dépôt, aucune ne commence par `http`, et `enableStaticServing` reste actif. Une police manquante ou distante **ne lève jamais** : la page retombe en silence sur une fonte système, donc le défaut serait invisible en local et visible seulement lors d'une démo sans réseau.
+8. **Les polices sont auto-hébergées et présentes** (`tests/test_app.py`) : chaque `url` déclarée dans `fontFaces` existe dans le dépôt, aucune ne commence par `http`, et `enableStaticServing` reste actif. Une police manquante ou distante **ne lève jamais** : la page retombe en silence sur une fonte système, donc le défaut serait invisible en local et visible seulement lors d'une démo sans réseau. ⚠️ **Ces trois tests ont un angle mort, et il a mordu :** ils vérifient que l'`url` EXISTE, jamais qu'elle RÉPOND. Les polices ne sont servies ni en local ni sur Cloud, et les trois tests restent verts. Voir le point en suspens n°1.
+9. **Aucune chaîne seule au niveau module de `app.py`** (`tests/test_app.py`, lecture de l'AST) : la « magie » de Streamlit peint toute expression laissée seule sur sa ligne, donc une docstring de constante s'affiche **au-dessus du titre de la page**. Arrivé, et invisible à toute la suite — le module s'importe parfaitement.
+10. **Chaque colonne du tableau porte son explication** (`tests/test_app.py`) : toute colonne affichée a une entrée dans `AIDES_COLONNES`, aucune aide n'est orpheline, le guide replié les nomme toutes, et aucun en-tête ne contient de `_`. Renommer une colonne au seul endroit de la sélection lui retirerait son infobulle **sans que rien n'échoue**.
 
 **Regarder le rendu, pas seulement les tests.** **Quatorze défauts d'interface sur
 quatorze** sont passés au travers de la suite et n'ont été trouvés qu'en ouvrant la
@@ -385,6 +438,11 @@ de couleur et pour la même raison : à l'extérieur elle coûterait de la large
 *Open Sans* et Streamlit en *Source Sans* : deux typographies sur un même écran,
 mesurées dans le DOM. `POLICE_FIGURE` dans `app.py` les réunit — la palette était déjà
 partagée, la police ne l'était pas.
+
+⚠️ **Tout ce qui suit sur la typographie DÉCRIT L'INTENTION, pas ce qui s'affiche.**
+Mesuré le 2026-08-04 : les `woff2` ne sont jamais servis, et la page retombe sur les
+fontes système. Voir le point en suspens n°1. Le reste du paragraphe reste valable comme
+spécification — c'est ce qu'il faut retrouver une fois le bug corrigé.
 
 **Streamlit 1.59 permet une vraie identité typographique, sans une ligne de CSS.**
 J'avais écrit l'inverse, c'était faux. Le thème expose `font`, `headingFont`,

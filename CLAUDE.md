@@ -29,23 +29,27 @@ gh issue list            # les 8 issues filles, #2 à #10
 | #6 sonde de couverture, prix, snapshot | ✅ livrée |
 | #7 surfabilité, climatologie, dispersion | ✅ livrée |
 | #8 score en rangs, curseur, dashboard | ✅ livrée |
-| #10 déploiement public | ✅ code livré — **reste UN réglage côté Streamlit** |
+| #10 déploiement public | ✅ livrée — **en ligne et publique** |
 | #9 Gemini, notebooks, validation externe | ✅ livrée |
 
-`main` est verte, 279 tests. Le pipeline tourne de bout en bout : 20 spots sourcés →
+**→ https://nalu-surf.streamlit.app** — vérifiée ouverte à un visiteur anonyme.
+Streamlit Cloud redéploie à chaque push sur `main`.
+
+`main` est verte, 287 tests. Le pipeline tourne de bout en bout : 20 spots sourcés →
 701 280 heures → 240 probabilités mensuelles → 240 prix → classement réordonnable,
 commenté par Gemini quand une clé est posée.
 
 **Le plan est complet.** Il ne reste aucune issue ouverte.
 
-⚠️ **Point en suspens sur #10 :** l'application déployée sur
-`https://nalu-surf.streamlit.app` demandait une **connexion** au 3 août 2026 —
-mesuré, `/_stcore/health` renvoie `303` vers `share.streamlit.io/-/auth/app`. Un
-prospect ne peut pas l'ouvrir, ce qui vide l'issue de son objet. Correction :
-Streamlit Cloud → l'app → Settings → Sharing → accès public. **Vérifier l'URL en
-navigateur avant de considérer #10 close.**
+⚠️ **Piège de diagnostic, à ne pas refaire.** `https://nalu-surf.streamlit.app/`
+répond `303` vers `share.streamlit.io/-/auth/app`. Ce n'est **pas** un mur de
+connexion : c'est l'amorçage de session anonyme que **toute** application Streamlit
+Cloud renvoie. Vérifié contre un témoin vivant (`30days.streamlit.app`), qui se
+comporte à l'identique. Le signal fiable est le websocket : `/_stcore/stream` répond
+`101` quand l'application tourne. J'ai conclu à tort à un dépôt privé sur la seule
+foi du `303`, et fait chercher un réglage inexistant.
 
-## Deux arbitrages ouverts — à trancher avec le porteur, pas seul
+## Trois arbitrages ouverts — à trancher avec le porteur, pas seul
 
 1. **Un spot sans prix reçoit le rang 0, ce qui le punit au lieu de le marquer.**
    En janvier, La Gravière marche 28,3 % des heures diurnes — quarante fois Ponta
@@ -65,6 +69,36 @@ navigateur avant de considérer #10 close.**
    au seuil de période. Recalibrer est désormais légitime — la mesure précède
    l'ajustement — mais **reste à décider avec le porteur**, spot par spot et avec sa
    source. Ne pas y toucher sans rejouer le notebook 02 après coup.
+3. **Le vide autour du planisphère, et la contrainte qui l'impose.**
+   Streamlit **fige la hauteur du bloc depuis Python** : le conteneur mesure toujours
+   `figure.layout.height`, et **aucun CSS ne le déplace** — vérifié en ciblant
+   `stElementContainer` (`height: auto !important` ignoré), en retirant la hauteur
+   (`autosize` → 450, toujours fixe) et en supprimant le `use_container_width`
+   déprécié (sans effet). La carte étant verrouillée en proportions, le vide ne
+   disparaît donc **qu'à une seule largeur**, vers 1415 px :
+
+   | viewport | carte | vide sous la carte | vide à droite |
+   |---|---|---|---|
+   | 390 | 358×131 | **329 px** | 0 |
+   | 1280 | 1120×411 | 49 px | 0 |
+   | 1920 | 1255×460 | 0 | **505 px** |
+   | 2560 | 1255×460 | 0 | **1145 px** |
+
+   « Pleine largeur **et** hauteur qui suit » n'est pas atteignable. Essayé et
+   **annulé** : la carte grandissait à 533 px pendant que le bloc restait à 460, donc
+   le bas de la carte — barre de couleur comprise — passait **sous le tableau**
+   (57 px à 1920, 251 px à 2560). Deux pistes chiffrées restent ouvertes : cadrage
+   resserré à `CARTE_LAT = (-45, 64)` en gardant le plafond, qui ramène le vide mobile
+   de 329 à 272 px sans rien coûter ; ou viser 1920 (hauteur 533, plafond 1760), qui
+   aligne parfaitement la carte sur le tableau mais porte le vide mobile à 425 px.
+
+## Autre point en suspens
+
+`.devcontainer/devcontainer.json`, ajouté par Streamlit Cloud au déploiement, épingle
+**Python 3.11** et installe un `requirements.txt` inexistant via `pip`. Le projet
+exige 3.12 et `uv.lock`. Sans conséquence sur la CI ni sur le déploiement, mais un
+prospect qui clique « Open in Codespaces » sur la vitrine tombe sur un environnement
+qui ne démarre pas.
 
 ## Régénérer les artefacts
 
@@ -76,6 +110,43 @@ uv run python -m nalu.ingest.openmeteo      # cache horaire (réseau, ~2300 unit
 uv run python -m nalu.ingest.flights --collect   # snapshot de prix (réseau, jeton)
 uv run python -m nalu.ingest.flights --check-token
 uv run python -m nalu.scoring.climatology   # 240 + 480 lignes, hors ligne, ~1 s
+uv run jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
+```
+
+Les notebooks sont commités **avec leurs sorties** : c'est ce qu'un prospect lit sur
+GitHub sans rien installer. Les réexécuter réécrit ces sorties, donc ne le faire que
+si le code a changé.
+
+## Carte du code
+
+```
+src/nalu/
+  config.py       les DOUZE parametres du modele, chacun avec sa justification
+  paths.py        RACINE et DATA — tous les chemins sont ancres sur le depot,
+                  JAMAIS sur le repertoire courant
+  env.py          lecture de .env + masquage d'un secret (empreinte())
+  palette.py      CLAIR / SOMBRE, partages par le dashboard et les notebooks
+  geo.py          in_arc() et sa jumelle vectorisee, une seule fois
+  spots.py        schema Pydantic, load_raw_spots() / load_spots()
+  coastline.py    Natural Earth, planisphere versionne
+  exposure.py     lancer de rayons -> fenetres de houle calculees
+  net.py          magasin de certificats systeme (proxy TLS)
+  validation.py   metrique d'accord + seuils, ECRITS AVANT la mesure
+  app.py          dashboard Streamlit
+  ingest/         openmeteo.py (cache horaire), flights.py (prix)
+  scoring/        surf.py, climatology.py, combine.py
+  llm/            commentary.py — Gemini, optionnel, degrade toujours
+
+data/
+  spots.yaml                 le referentiel, seul contenu non regenerable
+  exposure_windows.yaml      fenetres calculees
+  validation_seasons.yaml    reference externe de #9, ECRITE AVANT la mesure
+  airport_popularity.yaml    rangs de popularite, poses AVANT la sonde
+  snapshots/                 cache Open-Meteo (80 fichiers) + snapshot de prix
+  scores/                    climatology.parquet, fortnights.parquet
+  world_outline.parquet      fond de carte hors ligne
+
+notebooks/     01 houle · 02 validation externe · 03 vols — commites AVEC sorties
 ```
 
 ## Contraintes non négociables
@@ -93,6 +164,8 @@ uv run python -m nalu.scoring.climatology   # 240 + 480 lignes, hors ligne, ~1 s
 | `jq` est **absent** | Tout script qui en dépend échoue | Sérialiser le JSON avec Python |
 | **Proxy TLS d'entreprise** | `uv sync` échoue sur `invalid peer certificate: UnknownIssuer`, et Python sur `CERTIFICATE_VERIFY_FAILED` | `uv sync --system-certs`, ou `export UV_SYSTEM_CERTS=1` pour toute la session — **`UV_NATIVE_TLS` est déprécié**, `uv` le signale. Attention : toute commande qui fait re-résoudre `uv` (modifier `pyproject.toml`, `uv add`) rejoue le téléchargement et échoue sans ça. Côté Python, `nalu.net.use_system_trust_store()` (via `truststore`) est déjà appelé par tout ce qui sort sur le réseau |
 | `uv` était absent | — | Installé, version 0.12.1, dans `~/.local/bin` (pas toujours dans le `PATH` d'un shell neuf) |
+| Le **navigateur headless** de `/browse` redémarre entre deux commandes et retombe sur `about:blank` | Toute mesure DOM prise dans un appel séparé est fausse, et silencieusement | Enchaîner `viewport`, `goto`, `wait`, `js` et `screenshot` **dans un seul appel Bash**. Une page blanche est presque toujours l'outil, pas le site |
+| Streamlit **fige la hauteur du bloc** d'un graphique depuis `figure.layout.height` | Le CSS peut agrandir le tracé mais pas le bloc : le graphique passe **sous** l'élément suivant | Ne jamais compter sur le CSS pour rendre une hauteur responsive. Voir l'arbitrage n°3 |
 
 ## Décisions verrouillées — ne pas rouvrir sans raison explicite
 
@@ -128,7 +201,7 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 ## Testing
 
 ```bash
-uv run pytest              # 279 tests, ~21 s (dont ~17 s de notebooks)
+uv run pytest              # 287 tests, ~22 s (dont ~17 s de notebooks)
 uv run pytest -m "not slow"  # boucle courte : saute l'execution des notebooks
 uv run ruff check          # lint — il inspecte AUSSI les .ipynb
 uv run streamlit run src/nalu/app.py    # http://localhost:8501
@@ -143,19 +216,48 @@ Sept tests portent le plus de valeur et ne doivent jamais être supprimés :
 6. **La métrique de validation sait échouer** (`tests/test_validation.py`) : une contre-épreuve vérifie qu'elle n'est pas inerte, et qu'un spot sans pic compte comme un **échec** et non comme une exclusion. C'est ce qui empêche de faire réussir la validation en écartant ce qui la gêne.
 7. **Dégradation de la couche IA** (`tests/test_commentary.py`) : clé absente, clé refusée, réseau coupé, réponse vide. Aucune ne doit lever, et l'avertissement ne doit jamais contenir la clé.
 
-**Regarder le rendu, pas seulement les tests.** Trois défauts d'interface sur trois
+**Regarder le rendu, pas seulement les tests.** **Six défauts d'interface sur six**
 sont passés au travers de la suite et n'ont été trouvés qu'en ouvrant la page :
-marqueurs invisibles, couleur de statut détournée en accent, artefact non versionné.
+marqueurs invisibles · couleur de statut détournée en accent · artefact non versionné ·
+carte écrasée sur mobile · **carte coupée à droite sur grand écran** · **figure sombre
+sur page claire**. Les deux derniers ont échappé à des tests que je venais d'écrire,
+parce que je testais **une seule largeur** et **un seul thème**.
+
+Corollaire : tester au moins **390, 1280, 1920 et 2560 px**, et vérifier le thème
+clair *et* la préférence sombre. Un rendu correct à 1440 px ne prouve rien.
 
 ## Dataviz
 
 Les couleurs du dashboard viennent du skill `dataviz` et sont passées au validateur
 (bande de clarté, chroma, séparation daltonisme, contraste) — jamais choisies à l'œil.
-Elles vivent dans `CLAIR` / `SOMBRE` en tête de `src/nalu/app.py` et dans
-`.streamlit/config.toml`. **Invoquer `/dataviz` avant d'écrire le moindre graphique.**
+Elles vivent dans **`src/nalu/palette.py`** — une seule définition pour le dashboard
+et pour les notebooks, qui n'ont pas à charger Streamlit pour connaître un bleu — et
+dans `.streamlit/config.toml`. **Invoquer `/dataviz` avant d'écrire le moindre
+graphique.**
+
+Vérifié le 2026-08-03 : la teinte catégorielle unique passe les cinq contrôles sur
+surface claire **et** sombre, et les deux rampes séquentielles sont strictement
+monotones en clarté. `serie_attenuee` n'est **pas** un second emplacement catégoriel :
+c'est un pas d'atténuation, et le soumettre au validateur comme catégoriel le fait
+échouer à juste titre.
 
 Le rouge est une couleur de **statut** dans ce système : ne pas l'utiliser comme accent
-d'interface, sous peine qu'un curseur soit lu comme une alerte.
+d'interface, sous peine qu'un curseur soit lu comme une alerte. Le bleu est la couleur
+d'**accent** : ne pas peindre en `st.info` une absence bénigne, elle se lirait comme
+une information saillante.
+
+**La figure doit suivre le thème RÉELLEMENT appliqué, pas celui du navigateur.**
+`.streamlit/config.toml` épingle `theme.base = "light"`, donc la page est claire pour
+tout le monde. `palette()` lit `st.get_option("theme.base")` en premier et ne retombe
+sur `st.context.theme` que si aucune base n'est épinglée. Sans cette règle, un visiteur
+en mode sombre reçoit un **rectangle noir** au milieu d'une page claire — arrivé, et
+invisible depuis un navigateur en thème clair.
+
+**Le CSS du planisphère ne borne rien.** Ni `max-height` — posé sur le même élément
+qu'un `aspect-ratio`, il fait rétrécir la **largeur** de la boîte pendant que Plotly
+dessine à la taille du parent, et coupe le tiers droit de la carte. Ni `max-width` sans
+raison — la carte s'arrêterait avant le tableau. `style_planisphere()` est extrait de
+`main()` pour que ces deux interdits soient testables, et ils le sont.
 
 Le planisphère est versionné (`data/world_outline.parquet`, 17 Ko) parce que
 `scatter_geo` de Plotly télécharge sa topologie depuis un CDN : sans lui, carte vide

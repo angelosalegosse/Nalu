@@ -13,9 +13,17 @@ Moteur de recommandation de trips surf : croise **4 ans (2022‑2025)** de clima
 Le plan complet vit dans les issues GitHub, pas dans ce fichier.
 
 ```bash
-gh issue view 1          # EPIC : plan complet, modèle, sources, critères d'acceptation
-gh issue list            # les 8 issues filles, #2 à #10
+gh issue view 1              # EPIC : plan complet, modèle, sources, critères d'acceptation
+gh issue list --state all    # les 8 issues filles, #2 à #10 — TOUTES fermées
 ```
+
+⚠️ `gh issue list` sans `--state all` ne renvoie **rien** : les dix issues sont fermées
+depuis le 3 août 2026. Le dépôt n'est pas vide de plan, le plan est fini.
+
+L'EPIC #1 porte en tête un tableau des **cinq amendements rendus par la mesure** —
+profondeur d'archive, abandon de NOAA, repli après la sonde de couverture, douzième
+paramètre, poids réel du quota — et le texte du plan d'origine est conservé intact en
+dessous. Chaque issue fille est fermée avec le commit qui l'a livrée.
 
 `TODOS.md` à la racine contient le travail délibérément différé, avec son contexte.
 

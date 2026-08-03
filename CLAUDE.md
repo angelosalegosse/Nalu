@@ -27,7 +27,7 @@ dessous. Chaque issue fille est fermée avec le commit qui l'a livrée.
 
 `TODOS.md` à la racine contient le travail délibérément différé, avec son contexte.
 
-## État au 3 août 2026
+## État au 4 août 2026
 
 | Issue | État |
 |---|---|
@@ -43,11 +43,33 @@ dessous. Chaque issue fille est fermée avec le commit qui l'a livrée.
 **→ https://nalu-surf.streamlit.app** — vérifiée ouverte à un visiteur anonyme.
 Streamlit Cloud redéploie à chaque push sur `main`.
 
-`main` est verte, 287 tests. Le pipeline tourne de bout en bout : 20 spots sourcés →
+`main` est verte, 298 tests. Le pipeline tourne de bout en bout : 20 spots sourcés →
 701 280 heures → 240 probabilités mensuelles → 240 prix → classement réordonnable,
 commenté par Gemini quand une clé est posée.
 
 **Le plan est complet.** Il ne reste aucune issue ouverte.
+
+### Ce qui a été fait le 4 août, hors plan
+
+Deux passes de design, dans cet ordre — la seconde n'aurait rien valu sans la première.
+
+1. **Passe de défauts** (`df77fe3`). Sept défauts trouvés en ouvrant la page, aucun
+   attrapé par les 287 tests : deux classes de marqueurs sans légende · `None` affiché
+   en clair sur quatorze lignes · un seul `h1` pour six blocs de texte identiques ·
+   dix lignes sur vingt derrière un défilement invisible · mois tronqués en
+   « avri / octo / nove » · deux typographies · un accent manquant.
+2. **Direction visuelle** (`c357c06`), sur un brief explicite du porteur : *ce qu'un
+   prospect doit retenir est une **envie**, pas une démonstration.* Trois références
+   ouvertes et mesurées — Our World in Data pour la structure, Nomad List pour le
+   désir, The Pudding pour l'artisanat. D'où : Fraunces + Inter, contrôles dans le rail
+   latéral, et un **podium** de trois cartes avant le tableau.
+
+**Le principe qui en sort, et qui doit survivre :** le tableau est le livrable du
+**modèle**, pas celui du **produit**. Les vingt lignes sont Teahupo'o, Cloudbreak,
+Pipeline — des endroits dont on rêve — et les rendre en treize colonnes de flottants
+n'en donne aucune envie. Le podium porte le désir, le tableau porte la preuve, et la
+preuve reste **entière** un écran plus bas : le critère 21 de l'EPIC exige des chiffres
+traçables, il est tenu. Ne pas amputer le tableau pour faire joli.
 
 ⚠️ **Piège de diagnostic, à ne pas refaire.** `https://nalu-surf.streamlit.app/`
 répond `303` vers `share.streamlit.io/-/auth/app`. Ce n'est **pas** un mur de
@@ -64,8 +86,18 @@ foi du `303`, et fait chercher un réglage inexistant.
    Preta — mais sort 3ᵉ à `alpha = 0,5` faute de prix. Avec 170 couples sur 240 non
    couverts, l'axe prix mesure surtout « a un prix », pas « est bon marché » : le biais
    de popularité mesuré en #6 rentre par la fenêtre, dans le classement lui-même.
+
+   *Preuve plus tranchante, mesurée le 2026-08-04 :* **Arugam Bay et Sultans sortent
+   11ᵉ et 12ᵉ avec `p_surf` = 0,0 %** — jamais surfables en janvier — **au-dessus** de
+   Thurso East (2,1 %), Teahupo'o (1,4 %), Chicama (0,9 %) et Jeffreys Bay (0,7 %).
+   Uniquement parce qu'ils ont un prix. C'est la formulation la plus courte du
+   problème : le classement place des spots à probabilité nulle devant des spots
+   surfables.
+
    Options posées : ne rien changer (c'est la spec) · neutraliser le spot non couvert
    au lieu de le pénaliser · ajouter un filtre « spots couverts uniquement ».
+   `RANG_SANS_PRIX` est isolé dans `scoring/combine.py`, et le code sépare déjà
+   proprement « rang absent » de « rang 0 » : le changement serait chirurgical.
 2. **Sultans et Tres Palmas restent à `p_surf = 0` sur les douze mois.**
    *La condition posée est maintenant remplie :* #9 a livré la validation externe, la
    métrique d'accord est écrite dans `src/nalu/validation.py` et le référentiel de
@@ -83,11 +115,12 @@ foi du `303`, et fait chercher un réglage inexistant.
    `stElementContainer` (`height: auto !important` ignoré), en retirant la hauteur
    (`autosize` → 450, toujours fixe) et en supprimant le `use_container_width`
    déprécié (sans effet). La carte étant verrouillée en proportions, le vide ne
-   disparaît donc **qu'à une seule largeur**, vers 1415 px :
+   disparaît qu'à **une seule largeur de contenu**, celle où la carte atteint
+   exactement son plafond.
 
-   ⚠️ **Ces mesures ont changé le 2026-08-04** : le passage des contrôles dans le rail
-   latéral retire 300 px à la largeur du contenu, donc déplace le vide. Mesuré avant
-   et après, aux mêmes quatre largeurs :
+   ⚠️ **Les mesures ont changé le 2026-08-04** : le passage des contrôles dans le rail
+   latéral retire 300 px à la largeur du contenu, donc déplace cette largeur pivot et
+   déplace le vide avec elle. Mesuré avant et après, aux mêmes quatre viewports :
 
    | viewport | carte (après) | vide sous — avant → après | vide à droite — avant → après |
    |---|---|---|---|
@@ -103,18 +136,41 @@ foi du `303`, et fait chercher un réglage inexistant.
    « Pleine largeur **et** hauteur qui suit » n'est pas atteignable. Essayé et
    **annulé** : la carte grandissait à 533 px pendant que le bloc restait à 460, donc
    le bas de la carte — barre de couleur comprise — passait **sous le tableau**
-   (57 px à 1920, 251 px à 2560). Deux pistes chiffrées restent ouvertes : cadrage
-   resserré à `CARTE_LAT = (-45, 64)` en gardant le plafond, qui ramène le vide mobile
-   de 329 à 272 px sans rien coûter ; ou viser 1920 (hauteur 533, plafond 1760), qui
-   aligne parfaitement la carte sur le tableau mais porte le vide mobile à 425 px.
+   (57 px à 1920, 251 px à 2560).
 
-## Autre point en suspens
+   Deux pistes chiffrées restent ouvertes, **mais leurs nombres datent d'avant le
+   rail** et sont donc à remesurer : cadrage resserré à `CARTE_LAT = (-45, 64)` en
+   gardant le plafond, qui ramenait le vide mobile de 329 à 272 px sans rien coûter ;
+   ou relever le plafond, qui alignait la carte sur le tableau à une largeur donnée
+   mais aggravait le vide mobile. Une troisième piste est apparue avec le podium :
+   **le vide sous la carte n'est plus adjacent au tableau** mais à un bloc de cartes,
+   donc il se voit moins — le mesurer à l'œil avant de coder quoi que ce soit.
+
+## Autre point en suspens — toujours ouvert au 4 août
 
 `.devcontainer/devcontainer.json`, ajouté par Streamlit Cloud au déploiement, épingle
 **Python 3.11** et installe un `requirements.txt` inexistant via `pip`. Le projet
-exige 3.12 et `uv.lock`. Sans conséquence sur la CI ni sur le déploiement, mais un
-prospect qui clique « Open in Codespaces » sur la vitrine tombe sur un environnement
-qui ne démarre pas.
+exige 3.12 et `uv.lock`. Pire, son `updateContentCommand` n'installe que `streamlit` :
+ni `polars`, ni `plotly`, ni le paquet `nalu`. Sans conséquence sur la CI ni sur le
+déploiement, mais un prospect qui clique « Open in Codespaces » sur la vitrine tombe
+sur un environnement **qui ne démarre pas**.
+
+Deux issues possibles, à trancher : l'aligner sur 3.12 + `uv sync`, ou **supprimer
+`.devcontainer/`** puisque Streamlit Cloud ne s'en sert pas pour déployer. Un Codespace
+qui marche est un argument de plus ; un dossier supprimé n'est rien. Non fait.
+
+## Par où reprendre
+
+Aucune issue ouverte, aucun code en attente. Ce qui reste est une liste de **décisions**,
+par ordre de rapport valeur/effort :
+
+1. **Arbitrage n°1** — le rang 0 d'un spot sans prix. Le moins cher à décider, le plus
+   visible dans le produit, et le changement serait chirurgical.
+2. **Le devcontainer** — dix minutes, aucune décision de modèle.
+3. **Arbitrage n°2** — le recalibrage du seuil de période. Le plus lourd : sourçage
+   spot par spot, puis rejouer le notebook 02.
+4. **Arbitrage n°3** — le vide du planisphère. Le pire rapport effort/bénéfice, et le
+   podium l'a déjà rendu moins saillant.
 
 ## Régénérer les artefacts
 
@@ -132,6 +188,17 @@ uv run jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
 Les notebooks sont commités **avec leurs sorties** : c'est ce qu'un prospect lit sur
 GitHub sans rien installer. Les réexécuter réécrit ces sorties, donc ne le faire que
 si le code a changé.
+
+**Les polices** (`src/nalu/static/fonts/`) sont le seul artefact régénérable qui n'ait
+pas de commande. Elles viennent des sous-ensembles `latin` et `latin-ext` servis par
+Google Fonts : récupérer le CSS de `fonts.googleapis.com` avec un User-Agent de
+navigateur — sinon il renvoie du `ttf` au lieu du `woff2` —, en extraire les `url()` et
+les `unicode-range`, télécharger, et reporter les plages **telles quelles** dans
+`config.toml`. Les licences OFL vivent à côté des fichiers et doivent y rester.
+
+⚠️ Piège Windows croisé en le faisant : `print()` en Python écrit des fins de ligne
+`\r\n`, donc une URL passée à `curl` via un fichier intermédiaire traîne un retour
+chariot et la connexion échoue avec un `http 000` illisible. `tr -d '\r'`.
 
 ## Carte du code
 
@@ -212,6 +279,7 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 - **`in_arc()` n'existe qu'une fois**, dans `nalu/geo.py`. Le passage de fenêtre par 0 degré est le bug le plus probable du projet. Sa jumelle vectorisée `in_arc_expr()` vit **dans le même fichier**, et un test par propriétés sur 600 tirages prouve qu'elles ne divergent pas.
 - **Aucun secret commité.** `.env` dans `.gitignore`, `.env.example` documente les variables, toutes optionnelles. ⚠️ **Le jeton va dans `.env`, jamais dans `.env.example`** — ce dernier est versionné. Vérifier avec `uv run python -m nalu.ingest.flights --check-token`, qui n'affiche jamais la valeur.
 - **Tout ce qui est commité dans `data/` doit avoir son exception dans `.gitignore`.** La règle `*.parquet` capte tout par défaut. Un artefact oublié passe les tests en local et casse la CI — arrivé une fois avec `data/world_outline.parquet`.
+- **Aucune ressource distante dans la page.** Ni topologie de carte, ni police, ni feuille de style, ni image. La contrainte a déjà mordu **deux fois** : `scatter_geo` allait chercher son fond de carte sur un CDN (carte vide hors ligne), et une police servie par Google Fonts serait retombée sur une fonte système. Les deux échouent **en silence** — la page s'affiche, en moins bien — donc aucun test naïf ne les voit. Tout actif de rendu se commite : `data/world_outline.parquet`, `src/nalu/static/fonts/`. Cette règle protège la contrainte n°2, qui est la promesse la plus fragile du projet.
 
 ## Stack
 
@@ -226,7 +294,7 @@ uv run ruff check          # lint — il inspecte AUSSI les .ipynb
 uv run streamlit run src/nalu/app.py    # http://localhost:8501
 ```
 
-Sept tests portent le plus de valeur et ne doivent jamais être supprimés :
+Huit tests portent le plus de valeur et ne doivent jamais être supprimés :
 1. **Invariance aux extrêmes** (`hypothesis`, `tests/test_combine.py`) : ajouter un prix aberrant ne change pas l'ordre des autres. C'est la preuve du passage aux rangs centiles. Une contre-épreuve documente ce que min-max aurait fait.
 2. **Démarrage sans réseau** (`pytest-socket`) : protège la promesse centrale de la démo. La CI clone à froid et exécute ces tests contre le cache commité, donc la promesse est vérifiée à chaque push sur une machine neuve.
 3. **Intégrité du cache** (`verify_cache_integrity`) : un cache partiel produit un classement faux et plausible. Le pipeline échoue en nommant le spot **et** l'année.
@@ -234,6 +302,7 @@ Sept tests portent le plus de valeur et ne doivent jamais être supprimés :
 5. **Scan de secrets sur l'historique** (`tests/test_secrets.py`) : le dépôt est public, et ça ne se défait pas. La CI clone en `fetch-depth: 0`, sinon le scan n'aurait qu'un commit à lire et passerait vert sans rien vérifier. Le fichier **s'exclut lui-même** du scan : ses échantillons de contre-épreuve sont des formes de secrets. Même précaution que l'étape `python[3]` de `ci.yml`.
 6. **La métrique de validation sait échouer** (`tests/test_validation.py`) : une contre-épreuve vérifie qu'elle n'est pas inerte, et qu'un spot sans pic compte comme un **échec** et non comme une exclusion. C'est ce qui empêche de faire réussir la validation en écartant ce qui la gêne.
 7. **Dégradation de la couche IA** (`tests/test_commentary.py`) : clé absente, clé refusée, réseau coupé, réponse vide. Aucune ne doit lever, et l'avertissement ne doit jamais contenir la clé.
+8. **Les polices sont auto-hébergées et présentes** (`tests/test_app.py`) : chaque `url` déclarée dans `fontFaces` existe dans le dépôt, aucune ne commence par `http`, et `enableStaticServing` reste actif. Une police manquante ou distante **ne lève jamais** : la page retombe en silence sur une fonte système, donc le défaut serait invisible en local et visible seulement lors d'une démo sans réseau.
 
 **Regarder le rendu, pas seulement les tests.** **Onze défauts d'interface sur onze**
 sont passés au travers de la suite et n'ont été trouvés qu'en ouvrant la page :

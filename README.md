@@ -79,10 +79,10 @@ Socle ([#2](https://github.com/angelosalegosse/Nalu/issues/2)), référentiel
 ([#4](https://github.com/angelosalegosse/Nalu/issues/4)), prix
 ([#6](https://github.com/angelosalegosse/Nalu/issues/6)), surfabilité
 ([#7](https://github.com/angelosalegosse/Nalu/issues/7)), score et dashboard
-([#8](https://github.com/angelosalegosse/Nalu/issues/8)) et déploiement
-([#10](https://github.com/angelosalegosse/Nalu/issues/10)) sont livrés. Reste
-[#9](https://github.com/angelosalegosse/Nalu/issues/9) : commentaire Gemini,
-notebooks, validation externe.
+([#8](https://github.com/angelosalegosse/Nalu/issues/8)), déploiement
+([#10](https://github.com/angelosalegosse/Nalu/issues/10)) et couche IA + notebooks
++ validation externe ([#9](https://github.com/angelosalegosse/Nalu/issues/9)) sont
+livrés. Le plan est complet.
 
 ```
 data/spots.yaml (20 spots, chacun avec `source` et `confidence`)  [#3] fait
@@ -258,6 +258,63 @@ résultat y est sensible :
 Cloudbreak et Tres Palmas, avec un seul mois servi, n'ont pas de véritable axe prix
 comparable sur l'année. C'est une limite réelle du produit, écrite ici plutôt que
 découverte par un lecteur attentif.
+
+## Les trois notebooks, et ce qu'ils prouvent
+
+```bash
+uv run jupyter lab notebooks/          # les ouvrir
+uv run jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
+```
+
+Ils sont commités **avec leurs sorties** : un lecteur les lit sur GitHub sans rien
+installer. Un test rejoue les trois à chaque CI, pour qu'ils ne puissent pas afficher
+des résultats que le code ne produit plus.
+
+| Notebook | Ce qu'il établit |
+|---|---|
+| [`01-exploration-houle`](notebooks/01-exploration-houle.ipynb) | Le cache est complet (0 % de valeurs manquantes). La mer totale surestime la houle de 0,22 m en médiane, et de plus de 50 cm sur 14 % des heures — **la décision de perdre six ans d'archive est mesurée, pas postulée.** |
+| [`02-validation-scoring`](notebooks/02-validation-scoring.ipynb) | La confrontation à deux sources externes. **Le modèle échoue à son propre critère.** |
+| [`03-analyse-vols`](notebooks/03-analyse-vols.ipynb) | La couverture des prix corrèle à **+0,78** avec la popularité touristique. Qualité contre prix : **+0,12**, donc l'arbitrage du curseur est réel. |
+
+### La validation externe échoue, et c'est écrit
+
+Le modèle retrouve la haute saison publiée sur **10 spots sur 20 — 50 %, contre 70 %
+exigés.** Le seuil avait été fixé avant la mesure, dans `src/nalu/validation.py`, et
+il n'a pas été déplacé après coup.
+
+Ce que dit le détail, qui est plus utile que le taux :
+
+- l'**écart médian est nul** — quand le modèle tombe juste, il tombe pile ;
+- **6 échecs sur 10 ratent d'un seul mois**, ce qui est de l'ordre du désaccord entre
+  guides ;
+- **2 spots n'ont aucun pic** (Sultans, Tres Palmas, `p_surf = 0` partout) : leurs
+  seuils sont mal calibrés, c'est mesuré et non corrigé ici ;
+- **2 spots se trompent vraiment** — La Gravière et Mundaka, placés en plein hiver
+  quand les guides publient l'automne. Même cause pour les deux : leur saison dépend
+  de la **forme du fond**, sable ou embouchure, que le modèle ne voit pas. C'est la
+  limite `hs_offshore_*` déjà annoncée, et la validation la retrouve seule.
+
+La métrique et le référentiel de comparaison
+([`data/validation_seasons.yaml`](data/validation_seasons.yaml), deux sources par
+spot, chacune avec son URL) sont versionnés **avant** la première exécution du
+notebook. `git log --follow` sur ces deux fichiers est ce qui distingue une validation
+d'un ajustement déguisé.
+
+## La couche IA : elle commente, elle ne décide pas
+
+`GEMINI_API_KEY` est **facultative**. Sans elle, le dashboard fonctionne
+intégralement et le bloc commentaire affiche une phrase explicite.
+
+- **Aucun chiffre affiché ne vient du modèle de langage.** Il lit un classement déjà
+  calculé et le met en mots.
+- **Le tableau qui lui est transmis est de la donnée, pas des instructions.** Il est
+  encadré par des délimiteurs, avec consigne explicite d'ignorer toute directive qui
+  s'y trouverait — la seule surface d'injection du produit, fermée avant d'en avoir
+  besoin.
+- **Le commentaire est mis en cache par `(mois, alpha au dixième)`**, sinon le curseur
+  épuiserait le quota gratuit en quelques secondes de va-et-vient.
+- **Toute panne dégrade** : clé absente, clé refusée, réseau coupé, quota dépassé,
+  réponse vide. Jamais une exception dans un dashboard de démonstration.
 
 ## Limites assumées
 

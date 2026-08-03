@@ -1,0 +1,161 @@
+# Référentiel de VALIDATION EXTERNE — issue #9.
+#
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ Ce fichier est une RÉFÉRENCE, pas un paramètre. Rien ici n'entre dans le      │
+# │ modèle. Il sert uniquement à confronter, après coup, le pic mensuel CALCULÉ   │
+# │ par Nalu à ce que le monde du surf publie de son côté.                        │
+# │                                                                              │
+# │ Il est écrit AVANT toute mesure d'accord et AVANT tout ajustement de seuil.   │
+# │ C'est la seule chose qui sépare une validation d'un ajustement déguisé :      │
+# │ remplir ce fichier après avoir vu les résultats reviendrait à recopier la     │
+# │ réponse. Son historique git en fait foi.                                      │
+# └──────────────────────────────────────────────────────────────────────────────┘
+#
+# DEUX sources indépendantes, comme l'impose la révision d'ingénierie du
+# 2 août 2026. « La saison réputée » n'est pas une source : ce serait l'auteur
+# jugeant son propre modèle.
+#
+#   (a) `wsl_ct_mois` — mois des épreuves du Championship Tour WSL sur les spots
+#       qui en accueillent, actuelles ou historiques. C'est la source la plus dure :
+#       la WSL engage de l'argent sur une fenêtre, elle ne se trompe pas de saison.
+#       Source unique : https://www.worldsurfleague.com/events/2026/ct
+#       Réserve : une épreuve a une PÉRIODE D'ATTENTE de 10 à 14 jours et peut
+#       déborder sur le mois voisin. Les mois listés couvrent cette fenêtre.
+#
+#   (b) `saison_publiee` — haute saison publiée par les guides de surf et les
+#       périodes d'ouverture des surf camps, sur les 20 spots. Chaque entrée porte
+#       son URL, et chacune a été vérifiée accessible le 2026-08-03.
+#
+# `saison_publiee` est la HAUTE saison, pas la plage surfable. Une fenêtre large
+# rendrait l'accord trivial à obtenir et la validation sans valeur.
+#
+# Mois en base 1 : 1 = janvier.
+
+- id: hossegor-la-graviere
+  saison_publiee: [9, 10, 11]
+  source_saison: https://www.surf-forecast.com/breaks/La-Graviere
+  wsl_ct_mois: [10]
+  note: Quiksilver Pro France, en octobre, jusqu'à sa sortie du CT en 2019.
+
+- id: mundaka
+  saison_publiee: [10, 11, 12]
+  source_saison: https://www.surf-forecast.com/breaks/Mundaka
+  wsl_ct_mois: [10]
+  note: Billabong Pro Mundaka, en octobre, jusqu'à sa sortie du CT en 2009.
+
+- id: peniche-supertubos
+  saison_publiee: [10, 11, 12]
+  source_saison: https://www.surf-forecast.com/breaks/Supertubos
+  wsl_ct_mois: [3, 10, 11]
+  note: >-
+    Épreuve déplacée au fil des saisons : mars sur les éditions 2021-2023,
+    retour en automne sur le calendrier 2026 (22 octobre au 1er novembre).
+
+- id: thurso-east
+  saison_publiee: [10, 11, 12, 1, 2, 3]
+  source_saison: https://www.surf-forecast.com/breaks/Thurso-East
+  wsl_ct_mois: []
+
+- id: klitmoller
+  saison_publiee: [10, 11, 12, 1, 2, 3]
+  source_saison: https://www.surf-forecast.com/breaks/Klitmoller
+  wsl_ct_mois: []
+
+- id: anchor-point
+  saison_publiee: [11, 12, 1, 2, 3]
+  source_saison: https://suayhype.com/surf-trips/morocco/
+  wsl_ct_mois: []
+  note: >-
+    Saison des houles de nord-ouest sur les pointes de Taghazout,
+    coeur de saison de décembre à février.
+
+- id: ponta-preta
+  saison_publiee: [11, 12, 1, 2, 3]
+  source_saison: https://www.surf-forecast.com/breaks/Ponta-Preta
+  wsl_ct_mois: []
+
+- id: jeffreys-bay
+  saison_publiee: [5, 6, 7, 8, 9]
+  source_saison: https://www.surf-forecast.com/breaks/J-Bay
+  wsl_ct_mois: [7]
+  note: Corona Open J-Bay, en juillet.
+
+- id: banzai-pipeline
+  saison_publiee: [11, 12, 1, 2]
+  source_saison: https://www.surf-forecast.com/breaks/Pipe
+  wsl_ct_mois: [12, 1, 2]
+  note: >-
+    Saison du North Shore. L'épreuve de Pipeline ouvre ou ferme la saison selon
+    les années ; calendrier 2026, du 8 au 20 décembre.
+
+- id: zicatela
+  saison_publiee: [5, 6, 7, 8, 9]
+  source_saison: https://www.surf-forecast.com/breaks/Zicatela
+  wsl_ct_mois: []
+  note: Houles australes de l'hiver de l'hémisphère sud.
+
+- id: chicama
+  saison_publiee: [4, 5, 6, 7, 8, 9]
+  source_saison: https://www.surf-forecast.com/breaks/Chicama
+  wsl_ct_mois: []
+
+- id: tres-palmas
+  saison_publiee: [12, 1, 2, 3]
+  source_saison: https://www.surf-forecast.com/breaks/Tres-Palmas
+  wsl_ct_mois: []
+  note: >-
+    Ne casse que sur les grosses houles de nord-ouest de l'hiver atlantique.
+    Spot de gros, inactif le reste de l'année.
+
+- id: playa-grande
+  saison_publiee: [4, 5, 6, 7, 8, 9, 10]
+  source_saison: https://www.surf-forecast.com/breaks/Playa-Grande
+  wsl_ct_mois: []
+
+- id: uluwatu
+  saison_publiee: [5, 6, 7, 8, 9]
+  source_saison: https://www.surf-forecast.com/breaks/Uluwatu
+  wsl_ct_mois: []
+  note: Saison sèche, vents de sud-est offshore sur la péninsule de Bukit.
+
+- id: sultans
+  saison_publiee: [5, 6, 7, 8, 9]
+  source_saison: https://www.surf-forecast.com/breaks/Sultans
+  wsl_ct_mois: []
+  note: Atoll de Malé Nord, coeur de saison de juin à août.
+
+- id: cloudbreak
+  saison_publiee: [5, 6, 7, 8]
+  source_saison: https://www.surf-forecast.com/breaks/Cloudbreak
+  wsl_ct_mois: [5, 6, 8]
+  note: >-
+    Épreuve historiquement en juin, revenue en août sur les éditions récentes.
+
+- id: teahupoo
+  saison_publiee: [5, 6, 7, 8, 9]
+  source_saison: https://www.surf-forecast.com/breaks/Teahupoo
+  wsl_ct_mois: [7, 8]
+  note: >-
+    Tahiti Pro en août. Épreuve olympique de 2024 fin juillet, sur la même
+    fenêtre de houle australe.
+
+- id: arugam-bay
+  saison_publiee: [5, 6, 7, 8, 9]
+  source_saison: https://www.surf-forecast.com/breaks/Pottuvil-Point
+  wsl_ct_mois: []
+  note: >-
+    Pottuvil Point est la pointe d'Arugam Bay elle-même : c'est l'entrée que
+    surf-forecast publie pour ce spot.
+
+- id: tamarin-bay
+  saison_publiee: [5, 6, 7, 8, 9]
+  source_saison: https://www.surf-forecast.com/breaks/Tamarin-Bay
+  wsl_ct_mois: []
+
+- id: bells-beach
+  saison_publiee: [4, 5, 6, 7, 8]
+  source_saison: https://www.surf-forecast.com/breaks/Bells-Beach
+  wsl_ct_mois: [3, 4]
+  note: >-
+    Rip Curl Pro Bells Beach, à Pâques : selon les années, fin mars ou avril.
+    Ouvre le calendrier 2026.

@@ -34,7 +34,6 @@ touristique de la destination. `probe()` mesure ce biais et le publie.
 """
 
 import argparse
-import os
 import sys
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -45,11 +44,11 @@ import polars as pl
 import yaml
 
 from nalu.config import CONFIG
-from nalu.paths import DATA, RACINE
+from nalu.env import ENV_PATH, charger_env, empreinte, lire  # noqa: F401  (API publique)
+from nalu.paths import DATA
 
 TRAVELPAYOUTS_URL = "https://api.travelpayouts.com/v1/prices/monthly"
 VARIABLE_JETON = "TRAVELPAYOUTS_TOKEN"
-ENV_PATH = RACINE / ".env"
 POPULARITE_PATH = DATA / "airport_popularity.yaml"
 SNAPSHOT_DIR = DATA / "snapshots"
 
@@ -69,41 +68,15 @@ SCHEMA = {
 
 
 # ─── Jeton ─────────────────────────────────────────────────────────────────────
-
-
-def charger_env(chemin: Path | None = None) -> None:
-    """Charge `.env` dans l'environnement, sans écraser ce qui existe déjà.
-
-    Pas de dépendance pour trois lignes : le format utile est `CLE=valeur`.
-
-    `chemin` est résolu à l'appel, pas à la définition : une valeur par défaut liée
-    au moment du `def` fige `ENV_PATH` et rend le test « sans jeton » inécrivable.
-    """
-    chemin = chemin if chemin is not None else ENV_PATH
-    if not chemin.exists():
-        return
-    for ligne in chemin.read_text(encoding="utf-8").splitlines():
-        ligne = ligne.strip()
-        if not ligne or ligne.startswith("#") or "=" not in ligne:
-            continue
-        cle, _, valeur = ligne.partition("=")
-        cle, valeur = cle.strip(), valeur.strip().strip("\"'")
-        if cle and valeur:
-            os.environ.setdefault(cle, valeur)
+#
+# La lecture de `.env` et le masquage d'un secret vivent dans `nalu/env.py` : la clé
+# Gemini de `llm/commentary.py` en a besoin des mêmes. Deux copies divergeraient sur
+# le détail qui compte — `setdefault`, qui laisse gagner ce que le shell a posé.
 
 
 def jeton() -> str | None:
     """Le jeton, ou `None`. Ne jamais journaliser la valeur renvoyée."""
-    charger_env()
-    valeur = os.environ.get(VARIABLE_JETON, "").strip()
-    return valeur or None
-
-
-def empreinte(valeur: str) -> str:
-    """Trace non réversible, pour parler du jeton sans le divulguer."""
-    if len(valeur) <= 8:
-        return f"{'*' * len(valeur)} ({len(valeur)} caractères)"
-    return f"{valeur[:3]}…{valeur[-2:]} ({len(valeur)} caractères)"
+    return lire(VARIABLE_JETON)
 
 
 # ─── Mois d'horizon ────────────────────────────────────────────────────────────

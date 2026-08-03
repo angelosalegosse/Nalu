@@ -29,14 +29,21 @@ gh issue list            # les 8 issues filles, #2 à #10
 | #6 sonde de couverture, prix, snapshot | ✅ livrée |
 | #7 surfabilité, climatologie, dispersion | ✅ livrée |
 | #8 score en rangs, curseur, dashboard | ✅ livrée |
-| **#10 déploiement public** | **à faire — sécurise la 3ᵉ contrainte non négociable** |
-| #9 Gemini, notebooks, validation externe | à faire |
+| #10 déploiement public | ✅ code livré — **reste UN réglage côté Streamlit** |
+| #9 Gemini, notebooks, validation externe | ✅ livrée |
 
-`main` est verte, 211 tests. Le pipeline tourne de bout en bout : 20 spots sourcés →
-701 280 heures → 240 probabilités mensuelles → 240 prix → classement réordonnable.
+`main` est verte, 279 tests. Le pipeline tourne de bout en bout : 20 spots sourcés →
+701 280 heures → 240 probabilités mensuelles → 240 prix → classement réordonnable,
+commenté par Gemini quand une clé est posée.
 
-**Reprise conseillée : #10 avant #9.** Le déploiement est court (~30 min) et rend la
-vitrine accessible par un lien ; #9 l'enrichit ensuite sans risque.
+**Le plan est complet.** Il ne reste aucune issue ouverte.
+
+⚠️ **Point en suspens sur #10 :** l'application déployée sur
+`https://nalu-surf.streamlit.app` demandait une **connexion** au 3 août 2026 —
+mesuré, `/_stcore/health` renvoie `303` vers `share.streamlit.io/-/auth/app`. Un
+prospect ne peut pas l'ouvrir, ce qui vide l'issue de son objet. Correction :
+Streamlit Cloud → l'app → Settings → Sharing → accès public. **Vérifier l'URL en
+navigateur avant de considérer #10 close.**
 
 ## Deux arbitrages ouverts — à trancher avec le porteur, pas seul
 
@@ -47,13 +54,17 @@ vitrine accessible par un lien ; #9 l'enrichit ensuite sans risque.
    de popularité mesuré en #6 rentre par la fenêtre, dans le classement lui-même.
    Options posées : ne rien changer (c'est la spec) · neutraliser le spot non couvert
    au lieu de le pénaliser · ajouter un filtre « spots couverts uniquement ».
-2. **Sultans et Tres Palmas restent à `p_surf = 0` sur les douze mois.** Diagnostiqué,
-   pas bricolé : l'hypothèse « point de grille abrité » a été testée jusqu'à 100 km au
-   large et **réfutée**. Les seuils de hauteur et de période de ces deux spots sont
-   mal calibrés pour ce que le modèle sert à ces positions. **À trancher dans #9**, qui
-   porte la validation externe et impose d'écrire la métrique d'accord AVANT tout
-   ajustement de seuil. Ne pas les recalibrer avant, ce serait ajuster le modèle pour
-   qu'il produise le résultat attendu.
+2. **Sultans et Tres Palmas restent à `p_surf = 0` sur les douze mois.**
+   *La condition posée est maintenant remplie :* #9 a livré la validation externe, la
+   métrique d'accord est écrite dans `src/nalu/validation.py` et le référentiel de
+   comparaison dans `data/validation_seasons.yaml`, **tous deux versionnés avant la
+   première mesure**. Le résultat est publié : accord de **50 % contre 70 % exigés**,
+   ces deux spots comptés comme échecs et non exclus.
+   Le notebook 01 désigne le suspect n°1 : **seuls 4 spots sur 20 ont une période
+   moyenne médiane au-dessus de leur seuil converti**, donc `p_surf` est très sensible
+   au seuil de période. Recalibrer est désormais légitime — la mesure précède
+   l'ajustement — mais **reste à décider avec le porteur**, spot par spot et avec sa
+   source. Ne pas y toucher sans rejouer le notebook 02 après coup.
 
 ## Régénérer les artefacts
 
@@ -80,7 +91,7 @@ uv run python -m nalu.scoring.climatology   # 240 + 480 lignes, hors ligne, ~1 s
 | `python` local est en **3.14.2** | Pile scientifique instable, erreurs de compilation C | Épingler **Python 3.12** via `uv` |
 | `python3` renvoie le raccourci Microsoft Store | Échec silencieux ou message absurde | **Ne jamais écrire `python3`** dans un script, un README ou une CI |
 | `jq` est **absent** | Tout script qui en dépend échoue | Sérialiser le JSON avec Python |
-| **Proxy TLS d'entreprise** | `uv sync` échoue sur `invalid peer certificate: UnknownIssuer`, et Python sur `CERTIFICATE_VERIFY_FAILED` | `uv sync --system-certs`. Côté Python, `nalu.net.use_system_trust_store()` (via `truststore`) est déjà appelé par tout ce qui sort sur le réseau |
+| **Proxy TLS d'entreprise** | `uv sync` échoue sur `invalid peer certificate: UnknownIssuer`, et Python sur `CERTIFICATE_VERIFY_FAILED` | `uv sync --system-certs`, ou `export UV_SYSTEM_CERTS=1` pour toute la session — **`UV_NATIVE_TLS` est déprécié**, `uv` le signale. Attention : toute commande qui fait re-résoudre `uv` (modifier `pyproject.toml`, `uv add`) rejoue le téléchargement et échoue sans ça. Côté Python, `nalu.net.use_system_trust_store()` (via `truststore`) est déjà appelé par tout ce qui sort sur le réseau |
 | `uv` était absent | — | Installé, version 0.12.1, dans `~/.local/bin` (pas toujours dans le `PATH` d'un shell neuf) |
 
 ## Décisions verrouillées — ne pas rouvrir sans raison explicite
@@ -117,16 +128,20 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 ## Testing
 
 ```bash
-uv run pytest          # 211 tests, ~5 s
-uv run ruff check      # lint
+uv run pytest              # 279 tests, ~21 s (dont ~17 s de notebooks)
+uv run pytest -m "not slow"  # boucle courte : saute l'execution des notebooks
+uv run ruff check          # lint — il inspecte AUSSI les .ipynb
 uv run streamlit run src/nalu/app.py    # http://localhost:8501
 ```
 
-Quatre tests portent le plus de valeur et ne doivent jamais être supprimés :
+Sept tests portent le plus de valeur et ne doivent jamais être supprimés :
 1. **Invariance aux extrêmes** (`hypothesis`, `tests/test_combine.py`) : ajouter un prix aberrant ne change pas l'ordre des autres. C'est la preuve du passage aux rangs centiles. Une contre-épreuve documente ce que min-max aurait fait.
 2. **Démarrage sans réseau** (`pytest-socket`) : protège la promesse centrale de la démo. La CI clone à froid et exécute ces tests contre le cache commité, donc la promesse est vérifiée à chaque push sur une machine neuve.
 3. **Intégrité du cache** (`verify_cache_integrity`) : un cache partiel produit un classement faux et plausible. Le pipeline échoue en nommant le spot **et** l'année.
 4. **Accord des deux `in_arc`** (`tests/test_surf.py`) : sans lui, deux implémentations d'une règle unique divergeraient en silence.
+5. **Scan de secrets sur l'historique** (`tests/test_secrets.py`) : le dépôt est public, et ça ne se défait pas. La CI clone en `fetch-depth: 0`, sinon le scan n'aurait qu'un commit à lire et passerait vert sans rien vérifier. Le fichier **s'exclut lui-même** du scan : ses échantillons de contre-épreuve sont des formes de secrets. Même précaution que l'étape `python[3]` de `ci.yml`.
+6. **La métrique de validation sait échouer** (`tests/test_validation.py`) : une contre-épreuve vérifie qu'elle n'est pas inerte, et qu'un spot sans pic compte comme un **échec** et non comme une exclusion. C'est ce qui empêche de faire réussir la validation en écartant ce qui la gêne.
+7. **Dégradation de la couche IA** (`tests/test_commentary.py`) : clé absente, clé refusée, réseau coupé, réponse vide. Aucune ne doit lever, et l'avertissement ne doit jamais contenir la clé.
 
 **Regarder le rendu, pas seulement les tests.** Trois défauts d'interface sur trois
 sont passés au travers de la suite et n'ont été trouvés qu'en ouvrant la page :

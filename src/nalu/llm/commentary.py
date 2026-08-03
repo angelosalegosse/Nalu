@@ -189,7 +189,7 @@ def commenter(
         # Non mis en cache : ce cas ne coute aucun appel, et poser la cle ensuite
         # doit produire un commentaire sans avoir a vider quoi que ce soit.
         return Commentaire(
-            texte=f"Commentaire IA indisponible : {VARIABLE_CLE} non configuree.",
+            texte=f"Commentaire IA indisponible : {VARIABLE_CLE} non configurée.",
             disponible=False,
             raison="cle_absente",
         )

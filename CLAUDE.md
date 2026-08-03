@@ -209,7 +209,7 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 ## Testing
 
 ```bash
-uv run pytest              # 287 tests, ~22 s (dont ~17 s de notebooks)
+uv run pytest              # 293 tests, ~24 s (dont ~17 s de notebooks)
 uv run pytest -m "not slow"  # boucle courte : saute l'execution des notebooks
 uv run ruff check          # lint — il inspecte AUSSI les .ipynb
 uv run streamlit run src/nalu/app.py    # http://localhost:8501
@@ -224,15 +224,28 @@ Sept tests portent le plus de valeur et ne doivent jamais être supprimés :
 6. **La métrique de validation sait échouer** (`tests/test_validation.py`) : une contre-épreuve vérifie qu'elle n'est pas inerte, et qu'un spot sans pic compte comme un **échec** et non comme une exclusion. C'est ce qui empêche de faire réussir la validation en écartant ce qui la gêne.
 7. **Dégradation de la couche IA** (`tests/test_commentary.py`) : clé absente, clé refusée, réseau coupé, réponse vide. Aucune ne doit lever, et l'avertissement ne doit jamais contenir la clé.
 
-**Regarder le rendu, pas seulement les tests.** **Six défauts d'interface sur six**
+**Regarder le rendu, pas seulement les tests.** **Onze défauts d'interface sur onze**
 sont passés au travers de la suite et n'ont été trouvés qu'en ouvrant la page :
 marqueurs invisibles · couleur de statut détournée en accent · artefact non versionné ·
 carte écrasée sur mobile · **carte coupée à droite sur grand écran** · **figure sombre
-sur page claire**. Les deux derniers ont échappé à des tests que je venais d'écrire,
-parce que je testais **une seule largeur** et **un seul thème**.
+sur page claire** · deux classes de marqueurs sans légende · `None` affiché en clair ·
+page sans aucune section · mois tronqués en « avri / octo / nove » · deux typographies.
+Plusieurs ont échappé à des tests que je venais d'écrire, parce que je testais **une
+seule largeur** et **un seul thème**.
 
 Corollaire : tester au moins **390, 1280, 1920 et 2560 px**, et vérifier le thème
 clair *et* la préférence sombre. Un rendu correct à 1440 px ne prouve rien.
+
+⚠️ **Le DOM ne suffit pas non plus.** `st.dataframe` peint ses cellules dans un
+**canvas** : `document.body.innerText` ne les contient pas. J'ai cru avoir supprimé les
+`None` du tableau sur la foi d'un `innerText` à zéro alors qu'ils étaient toujours à
+l'écran. Pour un tableau, il faut **regarder l'image**.
+
+⚠️ **Le navigateur headless de `/browse` ne rend aucune application Streamlit Cloud.**
+Il reste sur le squelette de chargement, indéfiniment. Vérifié contre le témoin vivant
+`30days.streamlit.app`, qui se comporte à l'identique : c'est l'outil, pas le site. Ne
+pas en conclure que le déploiement est cassé — auditer l'instance **locale**, qui sert
+le même code, et ouvrir l'URL publique dans un vrai navigateur.
 
 ## Dataviz
 
@@ -270,6 +283,32 @@ raison — la carte s'arrêterait avant le tableau. `style_planisphere()` est ex
 Le planisphère est versionné (`data/world_outline.parquet`, 17 Ko) parce que
 `scatter_geo` de Plotly télécharge sa topologie depuis un CDN : sans lui, carte vide
 hors ligne.
+
+**Deux classes de marqueurs imposent une légende.** Règle du skill `dataviz` : dès
+deux séries, la légende est obligatoire, et l'identité ne repose jamais sur la couleur
+seule. Le planisphère distingue « prix connu » (disque coloré par le score) de « prix
+non couvert » (anneau) — sans légende, un anneau gris se lisait comme une mauvaise
+vague et non comme un trou de données. Elle est posée **dans** la carte, comme la barre
+de couleur et pour la même raison : à l'extérieur elle coûterait de la largeur. Son
+`itemclick` est désarmé, sinon un clic efface onze spots sans indice pour les rétablir.
+
+**La police des figures doit être celle de la page.** Par défaut Plotly compose en
+*Open Sans* et Streamlit en *Source Sans* : deux typographies sur un même écran,
+mesurées dans le DOM. `POLICE_FIGURE` dans `app.py` les réunit — la palette était déjà
+partagée, la police ne l'était pas.
+
+**Ne jamais abréger un mois par troncature.** À quatre lettres on obtient « avri »,
+« octo », « nove », « déce », qui se lisent comme des fautes ; à trois, « juin » et
+« juillet » se confondent en « jui » et **l'axe perd une barre en silence**. J'ai
+introduit exactement cette régression en corrigeant la première. `MOIS_COURT` porte des
+abréviations posées à la main, et deux tests vérifient qu'elles restent douze et
+distinctes.
+
+**`st.dataframe` peint « None » pour une valeur absente**, et ni `NumberColumn` ni son
+`format` ne le suppriment — mesuré sur Streamlit 1.59.1, les trois cas essayés. Seule
+une colonne de **texte** le permet. Mais du texte se trie alphabétiquement, et les prix
+vont de 67 à 2299 € : sans alignement à droite, « 2299 € » passerait avant « 67 € ».
+`table_affichee()` est extraite de `main()` pour que ce piège soit testable, et il l'est.
 
 ## Skill routing
 

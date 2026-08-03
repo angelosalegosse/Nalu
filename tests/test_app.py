@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 
 from nalu import app
-from nalu.app import CLAIR, SOMBRE, carte, saisonnalite
+from nalu.app import CLAIR, MOIS, MOIS_COURT, SANS_PRIX, SOMBRE, carte, saisonnalite
 from nalu.coastline import CONTOUR_PATH
 from nalu.scoring.combine import classement, construire_tableau
 
@@ -56,6 +56,25 @@ def test_la_carte_distingue_les_spots_non_couverts(tableau) -> None:
 
 
 @pytest.mark.disable_socket
+def test_les_deux_classes_de_marqueurs_sont_nommees_dans_une_legende(tableau) -> None:
+    """Sans legende, un anneau gris se lit comme une mauvaise vague, pas comme un trou.
+
+    Defaut trouve en ouvrant la page : le visiteur voyait onze anneaux et neuf disques
+    sans qu'aucun element de la figure ne dise que la difference est une COUVERTURE DE
+    DONNEES. Le trait de cote, lui, n'a rien a nommer et doit rester hors legende.
+    """
+    contour = pl.read_parquet(CONTOUR_PATH)
+    figure = carte(classement(tableau, 1, 0.5), contour, CLAIR)
+
+    nommees = [t for t in figure.data if t.showlegend]
+    assert len(nommees) == 2, "les deux classes de marqueurs, et elles seules"
+    assert {t.name for t in nommees} == {"prix connu", "prix non couvert"}
+    # Un clic de legende masque la serie chez Plotly : effacer onze spots par megarde,
+    # sans indice pour les retablir, coute plus que le filtre ne rapporte.
+    assert figure.layout.legend.itemclick is False
+
+
+@pytest.mark.disable_socket
 @pytest.mark.parametrize("palette", [CLAIR, SOMBRE], ids=["clair", "sombre"])
 def test_la_saisonnalite_couvre_les_douze_mois(tableau, palette: dict) -> None:
     serie = tableau.filter(pl.col("spot_id") == "uluwatu").sort("month")
@@ -65,6 +84,70 @@ def test_la_saisonnalite_couvre_les_douze_mois(tableau, palette: dict) -> None:
     assert len(figure.data[0].x) == 12
     # Le mois actif est mis en avant : deux teintes distinctes sur les barres.
     assert len(set(figure.data[0].marker.color)) == 2
+
+
+# ─── Les douze mois doivent rester DOUZE une fois abreges ─────────────────────
+#
+# Regression faillie le 2026-08-03, attrapee en regardant l'axe et non la suite : les
+# libelles venaient d'une troncature a longueur fixe de `MOIS`. A quatre lettres elle
+# donnait « avri », « octo », « nove », « déce », qui se lisent comme des fautes ; la
+# corriger a trois lettres faisait collisionner « juin » et « juillet » sur « jui », et
+# l'axe perdait un mois SANS QUE RIEN N'ECHOUE. Aucune longueur ne marche : il faut des
+# abreviations posees. Ce test est la pour que la troncature ne revienne pas.
+
+
+def test_les_abreviations_de_mois_sont_douze_et_toutes_distinctes() -> None:
+    """Une collision ferait disparaitre un mois de l'axe, en silence."""
+    assert len(MOIS_COURT) == 12
+    assert len(set(MOIS_COURT)) == 12, "deux mois abreges pareil : l'axe perd une barre"
+
+
+def test_chaque_abreviation_ouvre_bien_son_mois() -> None:
+    """Elles sont posees a la main : rien ne garantit qu'elles designent le bon mois."""
+    for long, court in zip(MOIS, MOIS_COURT, strict=True):
+        assert long.startswith(court), (long, court)
+
+
+# ─── La colonne des prix : ni « None », ni un tri faux ─────────────────────────
+#
+# `st.dataframe` peint « None » pour une valeur absente — la valeur Python brute, sur
+# quatorze des vingt lignes. Verifie sur Streamlit 1.59.1 : ni `NumberColumn` ni son
+# `format` ne la suppriment, seule une colonne de TEXTE le permet. Mais du texte se
+# trie alphabetiquement, et les prix vont de 67 a 2299 € : sans alignement a droite,
+# « 2299 € » passerait avant « 67 € » et un clic sur l'en-tete donnerait un ordre faux.
+
+
+@pytest.fixture(scope="module")
+def affichage(tableau) -> pl.DataFrame:
+    return app.table_affichee(classement(tableau, 1, 0.5))
+
+
+@pytest.mark.disable_socket
+def test_un_spot_sans_prix_n_affiche_jamais_none(affichage) -> None:
+    """C'est LE defaut visible : la valeur Python brute sur la moitie des lignes."""
+    cases = affichage["Prix €"].to_list()
+
+    assert "None" not in cases
+    assert None not in cases
+    assert SANS_PRIX in cases, "aucun spot non couvert : le test ne prouve plus rien"
+
+
+@pytest.mark.disable_socket
+def test_le_tri_alphabetique_des_prix_reste_l_ordre_numerique(affichage) -> None:
+    """La colonne est du TEXTE : c'est l'alignement a droite qui sauve l'ordre."""
+    connus = [c for c in affichage["Prix €"].to_list() if c != SANS_PRIX]
+    valeurs = [float(c.replace("€", "").strip()) for c in connus]
+
+    assert sorted(connus) == [c for _, c in sorted(zip(valeurs, connus, strict=True))]
+
+
+@pytest.mark.disable_socket
+def test_les_spots_sans_prix_se_rangent_en_fin_de_tri(affichage) -> None:
+    """Un prix absent n'est pas le moins cher : il ne doit pas ouvrir le classement."""
+    cases = sorted(affichage["Prix €"].to_list())
+
+    assert cases[-1] == SANS_PRIX
+    assert cases[0] != SANS_PRIX
 
 
 # ─── Le planisphère ne doit pas déborder de sa boîte ───────────────────────────

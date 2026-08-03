@@ -27,6 +27,15 @@ MOIS = [
     "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ]
 
+# Abréviations POSÉES, jamais tronquées. Couper `MOIS` à longueur fixe échoue des deux
+# côtés : à quatre lettres on obtient « avri », « octo », « nove », « déce », qui se
+# lisent comme des fautes ; à trois, « juin » et « juillet » se confondent tous deux en
+# « jui » et l'axe perd un mois — vu à l'écran, pas dans les tests.
+MOIS_COURT = [
+    "janv", "févr", "mars", "avr", "mai", "juin",
+    "juil", "août", "sept", "oct", "nov", "déc",
+]
+
 # La palette vit dans `nalu/palette.py` : les notebooks de l'issue #9 peignent les
 # mêmes graphiques et ne doivent pas charger Streamlit pour connaître un bleu.
 
@@ -51,6 +60,22 @@ CARTE_LAT_SPAN = CARTE_LAT[1] - CARTE_LAT[0]
 # spots devenus invisibles. Brider la largeur fait rétrécir les deux ensemble.
 CARTE_HAUTEUR_MAX = 460
 CARTE_LARGEUR_MAX = round(CARTE_HAUTEUR_MAX * CARTE_LON_SPAN / CARTE_LAT_SPAN)
+
+# La police des FIGURES doit être celle de la PAGE. Par défaut Plotly dessine en
+# « Open Sans » pendant que Streamlit compose en « Source Sans » : deux typographies
+# sur un même écran, mesuré dans le DOM le 2026-08-03. La palette était déjà partagée
+# entre le dashboard et les notebooks ; la police ne l'était pas.
+POLICE_FIGURE = '"Source Sans", sans-serif'
+
+# Hauteur d'une ligne et de l'en-tête de `st.dataframe`, en pixels. Mesurées dans le
+# DOM le 2026-08-03 : le tableau par défaut plafonne à 400 px, soit dix lignes sur
+# vingt, derrière un défilement interne que rien ne signale. Ces deux valeurs servent
+# à le dimensionner sur son contenu réel.
+LIGNE_TABLEAU = 35
+EN_TETE_TABLEAU = 38
+
+# Ce que porte la case prix d'un spot non couvert. Un tiret cadratin, jamais « None ».
+SANS_PRIX = "—"
 
 
 def style_planisphere() -> str:
@@ -143,7 +168,7 @@ def carte(classement: pl.DataFrame, contour: pl.DataFrame, c: dict) -> go.Figure
                     "size": 11, "color": c["encre_muette"], "symbol": "circle-open",
                     "line": {"width": 2},
                 },
-                text=absents["name"], showlegend=False,
+                text=absents["name"], showlegend=True, name="prix non couvert",
                 hovertemplate="<b>%{text}</b><br>prix non couvert<extra></extra>",
             )
         )
@@ -169,7 +194,7 @@ def carte(classement: pl.DataFrame, contour: pl.DataFrame, c: dict) -> go.Figure
                 },
             },
             text=couverts["name"], customdata=couverts.select("score", "price_eur").to_numpy(),
-            showlegend=False,
+            showlegend=True, name="prix connu",
             hovertemplate="<b>%{text}</b><br>score %{customdata[0]:.2f}"
             "<br>%{customdata[1]:.0f} €<extra></extra>",
         )
@@ -177,12 +202,29 @@ def carte(classement: pl.DataFrame, contour: pl.DataFrame, c: dict) -> go.Figure
     figure.update_layout(
         paper_bgcolor=c["surface"], plot_bgcolor=c["surface"],
         margin={"l": 0, "r": 0, "t": 0, "b": 0}, height=CARTE_HAUTEUR_MAX,
+        font={"family": POLICE_FIGURE, "color": c["encre_2"]},
         xaxis={"visible": False, "range": list(CARTE_LON)},
         yaxis={
             "visible": False, "range": list(CARTE_LAT),
             "scaleanchor": "x", "scaleratio": 1,
         },
         hoverlabel={"bgcolor": c["surface"], "font": {"color": c["encre"]}},
+        # Deux classes de marqueurs sans légende, c'est une identité portée par la
+        # seule forme du symbole : le visiteur voyait onze anneaux gris sans pouvoir
+        # savoir qu'ils signifient « prix non couvert » et non « mauvaise vague ».
+        # Posée DANS la carte, comme la barre de couleur et pour la même raison : à
+        # l'extérieur elle coûterait de la largeur de mise en page.
+        #
+        # `itemclick` désarmé : un clic de légende masque la série chez Plotly. Sur un
+        # tableau de bord, effacer onze spots par mégarde, sans indice pour les
+        # rétablir, coûte plus que le filtre ne rapporte.
+        legend={
+            "orientation": "h", "x": 0.01, "y": 0.03,
+            "xanchor": "left", "yanchor": "bottom",
+            "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+            "font": {"color": c["encre_2"], "size": 11},
+            "itemclick": False, "itemdoubleclick": False,
+        },
     )
     return figure
 
@@ -192,7 +234,7 @@ def saisonnalite(serie: pl.DataFrame, mois_actif: int, c: dict) -> go.Figure:
     couleurs = [c["serie"] if m == mois_actif else c["serie_attenuee"] for m in serie["month"]]
     figure = go.Figure(
         go.Bar(
-            x=[MOIS[m - 1][:4] for m in serie["month"]],
+            x=[MOIS_COURT[m - 1] for m in serie["month"]],
             y=serie["p_surf"] * 100,
             marker={"color": couleurs, "line": {"width": 0}},
             hovertemplate="%{x} — %{y:.1f} % des heures diurnes<extra></extra>",
@@ -201,6 +243,7 @@ def saisonnalite(serie: pl.DataFrame, mois_actif: int, c: dict) -> go.Figure:
     figure.update_layout(
         paper_bgcolor=c["surface"], plot_bgcolor=c["surface"],
         margin={"l": 0, "r": 0, "t": 10, "b": 0}, height=220, bargap=0.35,
+        font={"family": POLICE_FIGURE, "color": c["encre_2"]},
         xaxis={"tickfont": {"color": c["encre_muette"], "size": 11}, "showgrid": False},
         yaxis={
             "title": {"text": "P_surf (%)", "font": {"color": c["encre_2"], "size": 12}},
@@ -210,6 +253,55 @@ def saisonnalite(serie: pl.DataFrame, mois_actif: int, c: dict) -> go.Figure:
         hoverlabel={"bgcolor": c["surface"], "font": {"color": c["encre"]}},
     )
     return figure
+
+
+def table_affichee(classement: pl.DataFrame) -> pl.DataFrame:
+    """Le tableau tel qu'il est peint. Extrait de `main()` pour être testable.
+
+    Le point délicat est la colonne des prix. `st.dataframe` peint « None » pour une
+    valeur absente — la valeur Python brute, sur quatorze des vingt lignes. Mesuré sur
+    Streamlit 1.59.1 : ni `NumberColumn` ni son `format` ne la suppriment, **seule une
+    colonne de TEXTE** le permet.
+
+    Mais du texte se trie alphabétiquement, et les prix vont de 67 à 2299 € : « 2299 »
+    passerait avant « 67 », donc un clic sur l'en-tête donnerait un ordre faux. Aligner
+    les nombres à droite sur la largeur du plus long rétablit l'ordre exact, parce que
+    l'espace précède les chiffres dans la table des caractères. Le tiret cadratin les
+    suit tous, donc les spots sans prix se rangent en fin de tri plutôt qu'en tête.
+
+    La largeur est DÉRIVÉE des données : un snapshot qui passerait à cinq chiffres ne
+    doit pas casser silencieusement l'ordre.
+    """
+    prix_connus = classement["price_eur"].drop_nulls()
+    largeur = len(f"{prix_connus.max():.0f}") if prix_connus.len() else 1
+
+    return classement.select(
+        "rang",
+        pl.col("name").alias("Spot"),
+        pl.col("country").alias("Pays"),
+        (pl.col("p_surf") * 100).round(1).alias("P_surf %"),
+        pl.col("q").round(3).alias("Q"),
+        pl.col("rank_q").round(3).alias("rang Q"),
+        pl.when(pl.col("price_eur").is_null())
+        .then(pl.lit(SANS_PRIX))
+        .otherwise(
+            pl.col("price_eur").round(0).cast(pl.Int64).cast(pl.Utf8)
+            .str.pad_start(largeur, " ")
+            + pl.lit(" €")
+        )
+        .alias("Prix €"),
+        pl.col("rank_price").round(3).alias("rang prix"),
+        pl.col("score").round(3).alias("Score"),
+        pl.col("hours_surfable").alias("h surfables"),
+        pl.col("hours_daylight").alias("h diurnes"),
+        pl.col("intensity").round(2).alias("Intensité"),
+        pl.when(pl.col("price_missing"))
+        .then(pl.lit("prix non couvert"))
+        .when(pl.col("dispersion_alert"))
+        .then(pl.lit("écart entre quinzaines"))
+        .otherwise(pl.lit(""))
+        .alias("Signalement"),
+    )
 
 
 def main() -> None:
@@ -242,29 +334,28 @@ def main() -> None:
 
     st.html(style_planisphere())
     with st.container(key="planisphere"):
-        st.plotly_chart(carte(classement, contour, c), use_container_width=True)
+        # Barre d'outils Plotly masquée : ses six boutons font 24x22 px, très en
+        # dessous des 44 px d'une cible tactile, et zoomer sur un planisphère de
+        # vingt points n'apporte rien. Autant de bruit en moins.
+        st.plotly_chart(
+            carte(classement, contour, c),
+            use_container_width=True,
+            config={"displayModeBar": False},
+        )
 
-    affichage = classement.select(
-        "rang",
-        pl.col("name").alias("Spot"),
-        pl.col("country").alias("Pays"),
-        (pl.col("p_surf") * 100).round(1).alias("P_surf %"),
-        pl.col("q").round(3).alias("Q"),
-        pl.col("rank_q").round(3).alias("rang Q"),
-        pl.col("price_eur").alias("Prix €"),
-        pl.col("rank_price").round(3).alias("rang prix"),
-        pl.col("score").round(3).alias("Score"),
-        pl.col("hours_surfable").alias("h surfables"),
-        pl.col("hours_daylight").alias("h diurnes"),
-        pl.col("intensity").round(2).alias("Intensité"),
-        pl.when(pl.col("price_missing"))
-        .then(pl.lit("prix non couvert"))
-        .when(pl.col("dispersion_alert"))
-        .then(pl.lit("écart entre quinzaines"))
-        .otherwise(pl.lit(""))
-        .alias("Signalement"),
+    affichage = table_affichee(classement)
+    # Le titre annonce le NOMBRE : sans lui, le tableau montrait dix lignes derrière
+    # un défilement interne discret et rien ne disait qu'il y en a vingt. La hauteur
+    # les expose toutes, pour qu'un classement se lise d'un coup d'œil et non à la
+    # molette. C'est aussi le seul `h2` de la page avec la saisonnalité : avant, tout
+    # le document ne portait qu'un `h1` et aucune section.
+    st.header(f"Les {classement.height} spots, classés")
+    st.dataframe(
+        affichage,
+        hide_index=True,
+        use_container_width=True,
+        height=EN_TETE_TABLEAU + classement.height * LIGNE_TABLEAU,
     )
-    st.dataframe(affichage, hide_index=True, use_container_width=True)
     st.caption(
         "**Intensité** est informative : elle n'entre pas dans le score. "
         "**Le rang prix vaut 0** pour un spot non couvert — il reste affiché."
@@ -288,13 +379,18 @@ def main() -> None:
     else:
         st.caption(lecture.texte)
 
-    choix = st.selectbox("Saisonnalité d'un spot", classement["name"].to_list())
+    # `st.header` et non un libellé de `selectbox` : « Saisonnalité d'un spot » était
+    # le nom d'un contrôle, donc invisible à la structure du document. La page n'avait
+    # qu'un seul titre pour six blocs de texte tous composés à la même taille.
+    st.header("Saisonnalité d'un spot")
+    choix = st.selectbox("Spot", classement["name"].to_list())
     spot_id = classement.filter(pl.col("name") == choix)["spot_id"][0]
     st.plotly_chart(
         saisonnalite(
             tableau.filter(pl.col("spot_id") == spot_id).sort("month"), mois, c
         ),
         use_container_width=True,
+        config={"displayModeBar": False},
     )
 
     quinzaine = quinzaines.filter(

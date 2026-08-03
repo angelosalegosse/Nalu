@@ -113,3 +113,79 @@ def test_la_hauteur_de_la_carte_reste_sous_son_plafond_a_toute_largeur() -> None
         effective = min(largeur, app.CARTE_LARGEUR_MAX)
         hauteur = effective * app.CARTE_LAT_SPAN / app.CARTE_LON_SPAN
         assert hauteur <= app.CARTE_HAUTEUR_MAX + 1, (largeur, hauteur)
+
+
+# ─── Le theme de la figure doit suivre celui de la PAGE ────────────────────────
+#
+# Bug vu sur l'instance deployee le 2026-08-03, par un visiteur en mode sombre :
+# un rectangle NOIR au milieu d'une page claire. `.streamlit/config.toml` epingle
+# `theme.base = "light"` et impose un `backgroundColor`, donc la page est peinte en
+# clair pour tout le monde ; `palette()` suivait `st.context.theme`, qui rapporte la
+# preference du NAVIGATEUR. Un visiteur en mode sombre recevait donc la palette
+# SOMBRE (#1a1a19) posee sur une page #fcfcfb.
+
+
+def test_la_palette_suit_la_base_epinglee_et_non_le_navigateur() -> None:
+    """C'est LA regression : base epinglee en clair -> palette claire, toujours."""
+    import streamlit as st
+
+    base = st.get_option("theme.base")
+    assert base == "light", "ce test suppose la base epinglee de config.toml"
+    assert app.palette() is CLAIR
+
+
+def test_un_visiteur_en_mode_sombre_recoit_quand_meme_la_palette_claire(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LE cas qui produisait le rectangle noir, et le seul qui distingue le correctif.
+
+    Sans navigateur, `st.context.theme` est absent et l'ancienne implementation
+    renvoyait CLAIR par defaut : elle aurait passe les autres tests. Il faut donc
+    simuler explicitement un visiteur en mode sombre pour que le test morde.
+    """
+    import streamlit as st
+
+    class _Theme:
+        type = "dark"
+
+    class _Contexte:
+        theme = _Theme()
+
+    monkeypatch.setattr(st, "context", _Contexte(), raising=False)
+
+    # La base reste epinglee en clair par config.toml : c'est elle qui doit gagner.
+    assert st.get_option("theme.base") == "light"
+    assert app.palette() is CLAIR, (
+        "un visiteur en mode sombre recevait une figure sombre sur une page claire"
+    )
+
+
+def test_la_palette_de_la_page_et_celle_de_la_figure_ont_la_meme_surface() -> None:
+    """La surface de la figure doit etre exactement le fond de la page.
+
+    C'est l'invariant que le rectangle noir violait, et il se verifie sans navigateur.
+    """
+    import streamlit as st
+
+    assert app.palette()["surface"] == st.get_option("theme.backgroundColor")
+
+
+def test_sans_base_epinglee_on_retombe_sur_la_preference_du_navigateur(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retirer l'epingle de config.toml doit reactiver le suivi automatique."""
+    import streamlit as st
+
+    monkeypatch.setattr(st, "get_option", lambda _cle: None)
+
+    class _Theme:
+        type = "dark"
+
+    class _Contexte:
+        theme = _Theme()
+
+    monkeypatch.setattr(st, "context", _Contexte(), raising=False)
+    assert app.palette() is SOMBRE
+
+    _Theme.type = "light"
+    assert app.palette() is CLAIR

@@ -66,7 +66,7 @@ Deux passes de design, dans cet ordre — la seconde n'aurait rien valu sans la 
 
 **Le principe qui en sort, et qui doit survivre :** le tableau est le livrable du
 **modèle**, pas celui du **produit**. Les vingt lignes sont Teahupo'o, Cloudbreak,
-Pipeline — des endroits dont on rêve — et les rendre en treize colonnes de flottants
+Pipeline — des endroits dont on rêve — et les rendre en douze colonnes de flottants
 n'en donne aucune envie. Le podium porte le désir, le tableau porte la preuve, et la
 preuve reste **entière** un écran plus bas : le critère 21 de l'EPIC exige des chiffres
 traçables, il est tenu. Ne pas amputer le tableau pour faire joli.
@@ -215,8 +215,11 @@ src/nalu/
   exposure.py     lancer de rayons -> fenetres de houle calculees
   net.py          magasin de certificats systeme (proxy TLS)
   validation.py   metrique d'accord + seuils, ECRITS AVANT la mesure
-  app.py          dashboard Streamlit — podium(), etincelle(), table_affichee()
-                  sont extraits de main() pour etre testables
+  app.py          dashboard Streamlit — podium(), etincelle(), table_affichee(),
+                  guide_de_lecture(), moteur_du_rang() sont extraits de main()
+                  pour etre testables. Les libelles de colonnes sont des
+                  constantes COL_*, leurs infobulles vivent dans AIDES_COLONNES.
+                  AUCUNE docstring de constante ici : Streamlit l'afficherait
   static/fonts/   Fraunces + Inter en woff2, AUTO-HEBERGES, avec leurs licences
                   OFL. Servis sous app/static/ via server.enableStaticServing
   ingest/         openmeteo.py (cache horaire), flights.py (prix)
@@ -252,6 +255,8 @@ notebooks/     01 houle · 02 validation externe · 03 vols — commites AVEC so
 | `uv` était absent | — | Installé, version 0.12.1, dans `~/.local/bin` (pas toujours dans le `PATH` d'un shell neuf) |
 | Le **navigateur headless** de `/browse` redémarre entre deux commandes et retombe sur `about:blank` | Toute mesure DOM prise dans un appel séparé est fausse, et silencieusement | Enchaîner `viewport`, `goto`, `wait`, `js` et `screenshot` **dans un seul appel Bash**. Une page blanche est presque toujours l'outil, pas le site |
 | Streamlit **fige la hauteur du bloc** d'un graphique depuis `figure.layout.height` | Le CSS peut agrandir le tracé mais pas le bloc : le graphique passe **sous** l'élément suivant | Ne jamais compter sur le CSS pour rendre une hauteur responsive. Voir l'arbitrage n°3 |
+| **Les polices ne se chargent PAS sur l'instance locale**, alors qu'elles se chargent sur le déployé | `/app/static/fonts/*.woff2` renvoie **l'`index.html` de Streamlit** (6 602 octets, `text/html`) au lieu du fichier (72 920 octets sur le disque). `document.fonts` rapporte `Fraunces:error` et `Inter:error`, et la page retombe sur `serif` / `sans-serif` — **en silence**, comme toujours avec une police | **Ne pas conclure à une régression du dépôt.** Vérifié le 2026-08-04 : les six fichiers sont commités, `.streamlit/config.toml` est correct, `enableStaticServing` vaut `True`, `get_app_static_dir()` et `build_safe_abspath()` résolvent le bon chemin existant. La route `app/static/{path:path}` ne matche simplement pas dans le serveur Uvicorn/Starlette de Streamlit **1.59.1** sur cette machine. Le déployé, lui, rend bien Fraunces + Inter. Le signal fiable est `document.fonts`, pas l'œil : un fallback serif ressemble à Fraunces au premier coup d'œil |
+| La **« magie » de Streamlit affiche toute expression seule sur sa ligne** | Une docstring de constante dans `app.py` — la forme employée partout ailleurs, et notamment dans `combine.py` — est **peinte en haut de la page, au-dessus du titre**. Arrivé le 2026-08-04 avec `ECART_EGALITE` | Dans `app.py` **et lui seul**, les constantes se documentent en **commentaire**. `app.py` est le script exécuté, pas un module importé. Aucun test ne peut le voir, le module s'important parfaitement : `test_aucune_chaine_seule_au_niveau_module_de_l_app` lit l'AST |
 
 ## Décisions verrouillées — ne pas rouvrir sans raison explicite
 
@@ -288,7 +293,7 @@ Ces points ont été tranchés par `/spec` puis par `/plan-eng-review` et une co
 ## Testing
 
 ```bash
-uv run pytest              # 298 tests, ~25 s (dont ~17 s de notebooks)
+uv run pytest              # 310 tests, ~25 s (dont ~17 s de notebooks)
 uv run pytest -m "not slow"  # boucle courte : saute l'execution des notebooks
 uv run ruff check          # lint — il inspecte AUSSI les .ipynb
 uv run streamlit run src/nalu/app.py    # http://localhost:8501
@@ -304,14 +309,18 @@ Huit tests portent le plus de valeur et ne doivent jamais être supprimés :
 7. **Dégradation de la couche IA** (`tests/test_commentary.py`) : clé absente, clé refusée, réseau coupé, réponse vide. Aucune ne doit lever, et l'avertissement ne doit jamais contenir la clé.
 8. **Les polices sont auto-hébergées et présentes** (`tests/test_app.py`) : chaque `url` déclarée dans `fontFaces` existe dans le dépôt, aucune ne commence par `http`, et `enableStaticServing` reste actif. Une police manquante ou distante **ne lève jamais** : la page retombe en silence sur une fonte système, donc le défaut serait invisible en local et visible seulement lors d'une démo sans réseau.
 
-**Regarder le rendu, pas seulement les tests.** **Onze défauts d'interface sur onze**
-sont passés au travers de la suite et n'ont été trouvés qu'en ouvrant la page :
-marqueurs invisibles · couleur de statut détournée en accent · artefact non versionné ·
-carte écrasée sur mobile · **carte coupée à droite sur grand écran** · **figure sombre
-sur page claire** · deux classes de marqueurs sans légende · `None` affiché en clair ·
-page sans aucune section · mois tronqués en « avri / octo / nove » · deux typographies.
-Plusieurs ont échappé à des tests que je venais d'écrire, parce que je testais **une
-seule largeur** et **un seul thème**.
+**Regarder le rendu, pas seulement les tests.** **Quatorze défauts d'interface sur
+quatorze** sont passés au travers de la suite et n'ont été trouvés qu'en ouvrant la
+page : marqueurs invisibles · couleur de statut détournée en accent · artefact non
+versionné · carte écrasée sur mobile · **carte coupée à droite sur grand écran** ·
+**figure sombre sur page claire** · deux classes de marqueurs sans légende · `None`
+affiché en clair · page sans aucune section · mois tronqués en « avri / octo / nove » ·
+deux typographies · **docstring de constante peinte en haut de la page** · **deux
+colonnes du tableau derrière un défilement horizontal** · **légende nommant une colonne
+qui n'existe plus**. Plusieurs ont échappé à des tests que je venais d'écrire, parce que
+je testais **une seule largeur** et **un seul thème**. Les trois derniers sont arrivés
+dans le commit qui *améliorait* la lisibilité : une passe de clarté se vérifie à l'œil
+comme une autre.
 
 Corollaire : tester au moins **390, 1280, 1920 et 2560 px**, et vérifier le thème
 clair *et* la préférence sombre. Un rendu correct à 1440 px ne prouve rien.
@@ -406,6 +415,41 @@ zéro, ce qui arrive sur la moitié des spots.
 introduit exactement cette régression en corrigeant la première. `MOIS_COURT` porte des
 abréviations posées à la main, et deux tests vérifient qu'elles restent douze et
 distinctes.
+
+**Les en-têtes du tableau sont du français, jamais des noms de variables.** Amendé le
+2026-08-04 sur retour du porteur : « P_surf % », « rang Q », « h surfables » sont les
+noms du code posés devant un lecteur qui n'a pas ouvert `combine.py`. Le sens complet
+vit désormais dans l'**infobulle** de chaque en-tête (`st.column_config`, dictionnaire
+`AIDES_COLONNES`), qui ne coûte aucune largeur. Rien n'a été retiré du tableau, aucun
+chiffre n'a changé. Trois tests verrouillent l'ensemble : chaque colonne affichée a son
+aide, aucune aide n'est orpheline, et aucun en-tête ne contient de `_`.
+
+⚠️ **Un libellé plus long coûte de la largeur, et le tableau n'en a pas.**
+Mesuré à 1440 px, rail compris : la boîte fait **978 px**. Avec les anciens en-têtes le
+contenu demandait 1001 px (23 px de débordement) ; avec « Heures surfables », « Heures
+de jour » et « Taille relative » il montait à **1193 px**, et les deux dernières
+colonnes — dont `Signalement`, qui porte le « prix non couvert » cité par le podium, la
+carte et la légende — passaient derrière un défilement horizontal. Quatre correctifs, et
+il faut les garder ensemble : libellés courts (`Heures OK`, `Heures jour`, `Taille`) →
+**1091 px** ; retrait de la colonne `Q` → **1057 px** ; `Signalement` **remonté juste
+après le Score**, pour que la colonne sacrifiée soit `Taille`, la seule que le modèle
+déclare informative ; `Rang` et `Spot` **épinglés** (`pinned=True`), pour qu'un
+défilement ne laisse jamais une rangée de flottants sans son spot. Reste **79 px** de
+débordement à 1440 px, **zéro à partir de 1600 px**.
+
+**La colonne `Q` a été retirée le 2026-08-04, sur décision du porteur.** `Q = p_surf`
+par définition : la colonne peignait `0,007` en face du `0,7` de « Surfable % », deux
+fois la même grandeur. Ce n'est pas une amputation de la preuve — le lien à la formule
+tient par l'infobulle de « Surfable % », qui dit que c'est le `Q` du score, et par
+`Rang qualité`, la valeur qui entre **réellement** dans le calcul, restée juste à côté.
+La règle « ne pas amputer le tableau pour faire joli » vise le retrait d'une grandeur,
+pas celui d'un doublon.
+
+**Le guide de lecture interpole les constantes, il ne les recopie pas.** `guide_de_lecture()`
+est extrait de `main()` pour être testable, et compose ses libellés depuis les `COL_*`.
+Sans ça il a affiché « Taille relative » pendant que l'en-tête disait déjà « Taille » :
+une légende qui nomme une colonne absente est pire que pas de légende, et rien
+n'échouait.
 
 **`st.dataframe` peint « None » pour une valeur absente**, et ni `NumberColumn` ni son
 `format` ne le suppriment — mesuré sur Streamlit 1.59.1, les trois cas essayés. Seule

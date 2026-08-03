@@ -134,9 +134,133 @@ Deux choix structurants, et leur raison :
   mais **n'entre pas dans le score** : on n'additionne pas une probabilité et une
   grandeur non bornée.
 
-Les onze paramètres réglables vivent tous dans
+Les douze paramètres réglables vivent tous dans
 [`src/nalu/config.py`](src/nalu/config.py), chacun suivi de la phrase qui le justifie.
 Aucune constante en dur ailleurs.
+
+## Lire le tableau du dashboard
+
+Le tableau des vingt spots est la **preuve** du classement : il expose toutes les
+valeurs intermédiaires, pour qu'on puisse refaire le calcul à la main. C'est aussi ce
+qui le rend dense. Cette section le décode colonne par colonne — dans l'application,
+chaque en-tête porte la même explication en infobulle.
+
+### Les colonnes, une par une
+
+| Colonne | Ce qu'elle vaut | Ce qu'il faut savoir |
+|---|---|---|
+| **Rang** | 1 à 20 | Position dans le classement du mois choisi, au réglage actuel du curseur. Le tableau est trié par **Score**, pas par houle. |
+| **Surfable %** | 0 à 100 | La part des heures **de jour** du mois où la houle, sa période *et* le vent sont simultanément dans les seuils du spot. Moyenne sur 2022-2025. C'est `p_surf` dans le code, et le `Q` de la formule : la même valeur, en pourcentage plutôt qu'en probabilité. |
+| **Rang qualité** | 0 à 1 | Rang centile de `Q` parmi les **240 couples spot × mois**. 1 = la meilleure houle du référentiel, 0 = la moins bonne. C'est cette valeur, et non le pourcentage brut, qui entre dans le score. |
+| **Prix A/R** | € ou `—` | Aller-retour le moins cher relevé pour ce mois au départ de Paris. `—` signifie **aucune donnée pour cette route**, jamais un prix nul. |
+| **Rang prix** | 0 à 1 | Rang centile du prix sur les mêmes 240 couples. 1 = le billet le moins cher. **Un spot sans prix reçoit 0** — voir la limite ci-dessous. |
+| **Score** | 0 à 1 | `α × Rang qualité + (1 − α) × Rang prix`. La seule colonne que le curseur déplace, et celle qui trie le tableau. |
+| **Signalement** | texte | `prix non couvert` : aucun prix pour cette route. `écart entre quinzaines` : les deux moitiés du mois diffèrent assez pour qu'une moyenne mensuelle induise en erreur. |
+| **Heures OK** | un compte | Le nombre brut d'heures de jour **surfables** comptées pour ce mois sur les quatre années. |
+| **Heures jour** | un compte | Le nombre **total** d'heures de jour sur la même période. **Surfable %** est exactement le rapport des deux colonnes — c'est ce qui rend le pourcentage vérifiable à la main. |
+| **Taille** | 0 à 1 | Taille **relative**, détaillée juste en dessous. **Informative : elle n'entre pas dans le score.** |
+
+Les en-têtes sont courts parce que douze colonnes tiennent mal sur un écran étroit ;
+l'explication complète est dans l'infobulle de chaque en-tête, au survol. L'ordre des
+colonnes suit l'importance décroissante : sur un écran étroit, celles qui passent
+derrière le défilement horizontal sont les dernières, qui sont aussi les plus
+accessoires.
+
+`Q` n'a pas sa propre colonne. `Q = P_surf` par définition du modèle, donc l'afficher
+peignait deux fois le même nombre — `0,007` en face de `0,7` — ce qui ajoutait de la
+confusion là où le tableau cherche à en retirer. Le lien à la formule n'est pas perdu :
+**Surfable %** *est* `Q`, en pourcentage, et **Rang qualité** — la valeur qui entre
+réellement dans le score — est juste à côté.
+
+### La colonne « Taille » : un ratio, dont le maximum est 1
+
+C'est une **position relative dans la fenêtre de hauteur propre au spot**, pas une
+taille de vague :
+
+```
+Taille = (houle moyenne des heures surfables − hs_offshore_min) / (hs_offshore_max − hs_offshore_min)
+```
+
+- **Le maximum est 1**, atteint si la houle moyenne égale le plafond du spot. **0** vaut
+  pour le seuil bas. Le résultat est borné dans `[0, 1]` par construction : une heure
+  n'est comptée surfable que si sa hauteur tombe déjà dans la fenêtre, donc une moyenne
+  de valeurs comprises entre les deux bornes ne peut pas en sortir.
+- **1 n'est jamais atteint en pratique, et ne peut presque pas l'être.** C'est une
+  *moyenne* sur toutes les heures surfables du mois : il faudrait que chacune tombe pile
+  au plafond. Sur les 240 couples, le maximum observé est **0,57** — Supertubos en
+  novembre, soit 2,14 m de houle moyenne dans une fenêtre de 1 à 3 m. La médiane est
+  **0,14**. Une valeur au-dessus de 0,4 est donc déjà un gros mois.
+- **Deux spots ne se comparent pas en mètres.** Chaque fenêtre est propre au spot, et
+  elles vont de 1,7 à 3,0 m d'étendue. `0,45` vaut **1,90 m** à Supertubos (fenêtre
+  1→3 m) et **2,85 m** à Zicatela (fenêtre 1,5→4,5 m). La colonne répond à « ce mois
+  est-il gros *pour ce spot* », jamais à « quel spot a les plus grosses vagues ».
+- **Un 0 se lit « aucune heure surfable », pas « petite houle ».** Les 46 lignes à 0 du
+  cache actuel sont exactement les 46 sans une seule heure surfable : sans hauteur à
+  moyenner, le calcul retombe sur 0. C'est une ambiguïté réelle de la colonne — la
+  distinguer d'un vrai zéro demanderait une valeur absente, et la colonne **Heures OK**
+  la lève déjà en affichant 0.
+
+**Pourquoi elle reste hors du score.** C'est une normalisation min-max, exactement ce
+que le score s'interdit. Ici c'est sans danger : les bornes sont des **seuils déclarés
+et sourcés** par spot, pas des extrêmes observés qu'une seule valeur aberrante
+déplacerait. Mais l'ajouter au score reviendrait à additionner une probabilité et une
+grandeur d'une autre nature, ce que le modèle refuse depuis le début.
+
+### Pourquoi le premier n'est pas celui qui a les meilleures vagues
+
+C'est le contresens le plus probable de la page, et il vaut d'être fait une fois pour
+comprendre le modèle. **Janvier, curseur au milieu (`α = 0,5`), les trois premiers :**
+
+| Rang | Spot | Surfable % | Rang qualité | Prix A/R | Rang prix | Score |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | Ponta Preta | 0,7 | 0,326 | 301 € | 0,768 | **0,547** |
+| 2 | Uluwatu | 2,2 | 0,494 | 683 € | 0,580 | **0,537** |
+| 3 | La Gravière | 28,3 | 0,992 | — | 0,000 | **0,496** |
+
+Ponta Preta est première avec **0,7 % d'heures surfables** : sur les 1 364 heures de
+jour de janvier relevées sur quatre ans, 10 seulement réunissaient houle, période et
+vent. C'est très peu, et le modèle le dit. Le calcul se refait de tête :
+
+```
+Ponta Preta   0,5 × 0,326 + 0,5 × 0,768 = 0,163 + 0,384 = 0,547
+                            ^^^^^^^^^^^   c'est le billet a 301 € qui porte le score
+La Graviere   0,5 × 0,992 + 0,5 × 0,000 = 0,496 + 0     = 0,496
+                                          ^^^^^   la meilleure houle du mois, et 3e
+```
+
+**Le curseur n'est pas un réglage cosmétique, c'est le modèle.** Poussé sur « la
+meilleure vague » (`α = 1`), le rang prix disparaît de l'équation et le classement
+devient celui de la houle seule : La Gravière première avec 0,992, Anchor Point, puis
+Mundaka. Tiré sur « le billet le moins cher » (`α = 0`), Ponta Preta reste première pour
+la raison inverse — son billet.
+
+C'est aussi pour cela que chaque carte du podium porte une ligne du type
+*« 10 h surfables sur 1 364 h de jour · classé surtout sur le prix »* : elle nomme celui
+des deux termes qui l'emporte, au réglage courant.
+
+### Deux limites qu'il faut lire avant de conclure
+
+- **Un spot sans prix reçoit le rang prix 0, ce qui le pénalise au lieu de le
+  neutraliser.** Sur 240 couples, 170 n'ont aucun prix : à `α = 0,5`, l'axe prix mesure
+  donc en partie « cette route est-elle populaire » et pas seulement « ce billet est-il
+  bon marché ». Cas le plus net, toujours en janvier : Arugam Bay et Sultans sortent 11ᵉ
+  et 12ᵉ avec `Surfable % = 0` — jamais surfables — devant Teahupo'o et Chicama, qui le
+  sont un peu, **uniquement parce qu'ils ont un prix**. La [couverture des prix et le
+  biais qu'elle cache](#couverture-des-prix-et-le-biais-quelle-cache--mesuré-le-2-août-2026)
+  est mesurée plus bas, et l'arbitrage est ouvert et assumé, pas ignoré.
+- **Taille relative n'entre pas dans le score.** On n'additionne pas une probabilité
+  bornée et une hauteur de houle qui ne l'est pas. Un spot peut donc avoir une meilleure
+  taille relative et un moins bon rang : ce n'est pas une incohérence, c'est la règle.
+
+### Les deux figures
+
+Le **planisphère** ne montre qu'une chose : le Score, par la teinte du disque. Un
+**anneau** au lieu d'un disque signifie « prix non couvert » — un trou de données, pas
+une mauvaise vague. La légende est posée dans la carte pour ne pas coûter de largeur.
+
+La **saisonnalité** montre les douze mois d'un seul spot, en part d'heures de jour
+surfables. La barre pleine est le mois choisi. Le prix n'y entre pas : c'est la figure
+qui répond à « quand », quand le tableau répond à « où ».
 
 ## Les fenêtres de houle sont calculées, pas déclarées
 

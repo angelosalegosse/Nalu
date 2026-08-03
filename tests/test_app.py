@@ -9,7 +9,17 @@ import polars as pl
 import pytest
 
 from nalu import app
-from nalu.app import CLAIR, MOIS, MOIS_COURT, SANS_PRIX, SOMBRE, carte, saisonnalite
+from nalu.app import (
+    AIDES_COLONNES,
+    CLAIR,
+    COL_PRIX,
+    MOIS,
+    MOIS_COURT,
+    SANS_PRIX,
+    SOMBRE,
+    carte,
+    saisonnalite,
+)
 from nalu.coastline import CONTOUR_PATH
 from nalu.paths import RACINE
 from nalu.scoring.combine import classement, construire_tableau
@@ -126,7 +136,7 @@ def affichage(tableau) -> pl.DataFrame:
 @pytest.mark.disable_socket
 def test_un_spot_sans_prix_n_affiche_jamais_none(affichage) -> None:
     """C'est LE defaut visible : la valeur Python brute sur la moitie des lignes."""
-    cases = affichage["Prix €"].to_list()
+    cases = affichage[COL_PRIX].to_list()
 
     assert "None" not in cases
     assert None not in cases
@@ -136,7 +146,7 @@ def test_un_spot_sans_prix_n_affiche_jamais_none(affichage) -> None:
 @pytest.mark.disable_socket
 def test_le_tri_alphabetique_des_prix_reste_l_ordre_numerique(affichage) -> None:
     """La colonne est du TEXTE : c'est l'alignement a droite qui sauve l'ordre."""
-    connus = [c for c in affichage["Prix €"].to_list() if c != SANS_PRIX]
+    connus = [c for c in affichage[COL_PRIX].to_list() if c != SANS_PRIX]
     valeurs = [float(c.replace("€", "").strip()) for c in connus]
 
     assert sorted(connus) == [c for _, c in sorted(zip(valeurs, connus, strict=True))]
@@ -145,10 +155,147 @@ def test_le_tri_alphabetique_des_prix_reste_l_ordre_numerique(affichage) -> None
 @pytest.mark.disable_socket
 def test_les_spots_sans_prix_se_rangent_en_fin_de_tri(affichage) -> None:
     """Un prix absent n'est pas le moins cher : il ne doit pas ouvrir le classement."""
-    cases = sorted(affichage["Prix €"].to_list())
+    cases = sorted(affichage[COL_PRIX].to_list())
 
     assert cases[-1] == SANS_PRIX
     assert cases[0] != SANS_PRIX
+
+
+# ─── Les colonnes doivent etre LISIBLES, et chacune expliquee ─────────────────
+#
+# Le tableau est la preuve du produit : illisible, il ne prouve rien. Les en-tetes
+# portaient les noms internes du modele — « P_surf % », « rang Q » — qu'un lecteur qui
+# n'a pas ouvert `combine.py` ne peut pas decoder. L'explication complete vit dans
+# l'infobulle de l'en-tete, donc une colonne SANS entree d'aide perd son explication
+# sans que rien ne le signale a l'ecran : l'infobulle disparait, c'est tout.
+
+
+@pytest.mark.disable_socket
+def test_chaque_colonne_affichee_porte_son_explication(affichage) -> None:
+    """C'est LA regression silencieuse : renommer une colonne lui retire son infobulle."""
+    manquantes = [nom for nom in affichage.columns if nom not in AIDES_COLONNES]
+
+    assert not manquantes, f"colonnes sans aide de lecture : {manquantes}"
+
+
+@pytest.mark.disable_socket
+def test_aucune_aide_ne_designe_une_colonne_disparue(affichage) -> None:
+    """Une aide orpheline ne s'affiche nulle part : elle ment sur ce que la page dit."""
+    orphelines = [nom for nom in AIDES_COLONNES if nom not in affichage.columns]
+
+    assert not orphelines, f"aides sans colonne : {orphelines}"
+
+
+@pytest.mark.disable_socket
+def test_le_guide_replie_nomme_chaque_colonne_du_tableau(affichage) -> None:
+    """Une legende qui nomme une colonne absente est pire que pas de legende.
+
+    Arrive : le guide annoncait « Taille relative » quand l'en-tete disait deja
+    « Taille ». Les libelles sont desormais interpoles depuis les memes constantes, et
+    ce test verifie qu'aucune colonne n'est passee sous silence.
+    """
+    guide = app.guide_de_lecture()
+    absentes = [nom for nom in affichage.columns if nom not in guide]
+
+    assert not absentes, f"colonnes que le guide ne nomme pas : {absentes}"
+
+
+@pytest.mark.disable_socket
+def test_aucun_en_tete_ne_porte_un_nom_de_variable(affichage) -> None:
+    """« P_surf % », « rank_q » : des noms de code poses devant un lecteur.
+
+    Le souligne est la marque de fabrique des identifiants du modele et n'apparait
+    jamais dans un libelle francais. C'est un garde-fou grossier, et c'est voulu : il
+    coute une ligne et attrape le retour en arriere le plus probable.
+    """
+    fautifs = [nom for nom in affichage.columns if "_" in nom]
+
+    assert not fautifs, f"noms de variables en en-tete : {fautifs}"
+
+
+def test_aucune_chaine_seule_au_niveau_module_de_l_app() -> None:
+    """La « magie » de Streamlit PEINT toute expression laissee seule sur sa ligne.
+
+    `app.py` est le script execute, pas un module importe comme les autres : une
+    docstring posee sous une constante — la forme employee partout ailleurs dans le
+    depot, et notamment dans `combine.py` — devient un paragraphe affiche EN HAUT DE LA
+    PAGE, au-dessus du titre. Vu a l'ecran le 2026-08-04 avec `ECART_EGALITE`, et aucun
+    des 308 tests ne pouvait le voir : le module s'importe parfaitement.
+
+    D'ou la regle, verifiee ici : dans ce fichier les constantes se documentent en
+    COMMENTAIRE. La docstring du module elle-meme est la seule exception legitime.
+    """
+    import ast
+
+    source = (RACINE / "src" / "nalu" / "app.py").read_text(encoding="utf-8")
+    corps = ast.parse(source).body
+
+    fautives = [
+        noeud.lineno
+        for noeud in corps[1:]  # [0] est la docstring du module, la seule permise
+        if isinstance(noeud, ast.Expr) and isinstance(noeud.value, ast.Constant)
+    ]
+
+    assert not fautives, (
+        f"chaine seule au niveau module, lignes {fautives} : Streamlit l'affichera"
+    )
+
+
+def test_le_guide_de_lecture_pointe_sur_une_section_qui_existe() -> None:
+    """La page renvoie au README pour le guide complet. Un lien mort ne se voit pas.
+
+    L'ancre est derivee du titre par GitHub : minuscules, ponctuation retiree, espaces
+    en tirets. Renommer la section casserait le lien SANS rien casser d'autre — ni un
+    test, ni le rendu — et un prospect tomberait en haut du README.
+    """
+    import re
+    import unicodedata
+
+    readme = (RACINE / "README.md").read_text(encoding="utf-8")
+    ancres = set()
+    for titre in re.findall(r"^#{2,3} (.+)$", readme, flags=re.MULTILINE):
+        propre = "".join(
+            c
+            for c in titre.lower()
+            if c.isalnum() or c in " -" or unicodedata.category(c).startswith("L")
+        )
+        ancres.add(propre.replace(" ", "-"))
+
+    attendue = app.GUIDE_URL.split("#", 1)[1]
+    assert attendue in ancres, f"ancre absente du README : {attendue}"
+
+
+# ─── « Pourquoi ce spot est-il premier avec 0,7 % ? » ──────────────────────────
+#
+# Ponta Preta sort 1re en janvier a alpha = 0,5 avec 0,7 % d'heures surfables. Sans
+# explication le lecteur conclut que le classement est casse ; il ne l'est pas, c'est le
+# billet a 301 € qui porte le score. Le score etant EXACTEMENT la somme des deux termes,
+# les comparer ne demande aucune estimation.
+
+
+@pytest.mark.parametrize(
+    ("rang_q", "rang_prix", "alpha", "attendu"),
+    [
+        (0.326, 0.768, 0.5, "prix"),  # Ponta Preta, janvier — le cas qui a motive ceci
+        (0.992, 0.0, 0.5, "houle"),  # La Graviere : tres bonne houle, aucun prix
+        (0.5, 0.5, 0.5, "autant"),  # les deux a parts strictement egales
+        (0.1, 0.9, 1.0, "houle"),  # alpha = 1 : le prix ne pese plus rien
+        (0.9, 0.1, 0.0, "prix"),  # alpha = 0 : la houle ne pese plus rien
+    ],
+)
+def test_le_podium_nomme_ce_qui_porte_le_rang(
+    rang_q: float, rang_prix: float, alpha: float, attendu: str
+) -> None:
+    assert attendu in app.moteur_du_rang(rang_q, rang_prix, alpha)
+
+
+def test_le_terme_dominant_du_score_est_bien_celui_annonce() -> None:
+    """La phrase doit suivre le calcul, pas une intuition sur les rangs bruts.
+
+    A alpha = 0,9 un rang prix de 1,0 pese 0,1 quand un rang houle de 0,3 pese 0,27 :
+    lire les rangs bruts designerait le prix, et ce serait faux.
+    """
+    assert "houle" in app.moteur_du_rang(0.3, 1.0, 0.9)
 
 
 # ─── La sparkline du podium ───────────────────────────────────────────────────

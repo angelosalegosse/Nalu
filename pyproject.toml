@@ -51,6 +51,12 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# `alpha`, `x`, `-` et l'espace fine insecable sont ici de la TYPOGRAPHIE, pas des
+# homoglyphes accidentels : ils composent la formule du score et les nombres montres au
+# visiteur, dans du texte francais affiche a l'ecran. RUF001 les signale parce qu'ils
+# ressemblent aux caracteres ASCII — vrai dans un identifiant, faux dans une phrase.
+# La regle reste active pour tout le reste, y compris le cyrillique et le grec non liste.
+allowed-confusables = ["α", "×", "−", " "]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

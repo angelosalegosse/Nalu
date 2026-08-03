@@ -48,9 +48,19 @@ jobs:
       #     detecterait elle-meme ;
       #   - `CLAUDE.md` est exclu : c'est le fichier qui ENONCE l'interdiction, il
       #     doit pouvoir la citer telle quelle pour rester lisible.
+      # Deux exclusions supplementaires depuis l'issue #9, et seulement deux : les
+      # notebooks portent un KERNELSPEC Jupyter nomme `python[3]`, plus un lexer
+      # `ipython[3]`. Ce sont des identifiants de noyau, pas des invocations d'un
+      # executable — le raccourci Microsoft Store ne peut pas les casser. Les filtrer
+      # par nom exact plutot que d'exclure `*.ipynb` en bloc garde la garde active
+      # sur le CODE des cellules, ou un `!python[3] ...` serait un vrai probleme.
+      # Les motifs de filtrage s'ecrivent eux aussi avec une classe de caracteres,
+      # sinon cette etape se detecterait elle-meme.
       - name: Aucune invocation de l'interpreteur suffixe
         run: |
-          if git ls-files -z ':!CLAUDE.md' | xargs -0 grep -nI "python[3]"; then
+          if git ls-files -z ':!CLAUDE.md' | xargs -0 grep -nI "python[3]" \
+              | grep -v '"name": "python[3]"' \
+              | grep -v '"pygments_lexer": "ipython[3]"'; then
             echo "::error::reference interdite a l'interpreteur suffixe (voir CLAUDE.md)"
             exit 1
           fi

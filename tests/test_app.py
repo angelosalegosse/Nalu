@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import polars as pl
 import pytest
 
+from nalu import app
 from nalu.app import CLAIR, SOMBRE, carte, saisonnalite
 from nalu.coastline import CONTOUR_PATH
 from nalu.scoring.combine import classement, construire_tableau
@@ -64,3 +65,51 @@ def test_la_saisonnalite_couvre_les_douze_mois(tableau, palette: dict) -> None:
     assert len(figure.data[0].x) == 12
     # Le mois actif est mis en avant : deux teintes distinctes sur les barres.
     assert len(set(figure.data[0].marker.color)) == 2
+
+
+# ─── Le planisphère ne doit pas déborder de sa boîte ───────────────────────────
+#
+# Bug trouvé le 2026-08-03 en ouvrant la page à 1920 px, pas par la suite de tests :
+# un `max-height` posé sur le même élément qu'un `aspect-ratio` entrait en conflit
+# avec lui. Le navigateur tranchait en rétrécissant la LARGEUR de la boîte (1255 px)
+# pendant que Plotly dessinait son SVG à la taille du parent (1760 px). Tout le tiers
+# droit de la carte était coupé — Japon, est de l'Australie, Nouvelle-Zélande, et
+# deux marqueurs de spots purement invisibles.
+#
+# Mesures avant correction :  1280 -> 0 px de debordement | 1440 -> 25 | 1920 -> 505
+#                             2560 -> 1145
+# Apres :                     0 px a toutes ces largeurs, mobile compris.
+
+
+def test_le_plafond_de_la_carte_porte_sur_la_largeur_pas_la_hauteur() -> None:
+    """C'est LA regression. `max-height` reintroduit, la carte se fait couper."""
+    css = app.style_planisphere()
+
+    assert "max-width" in css
+    assert "max-height" not in css, (
+        "un max-height sur l'element porteur de l'aspect-ratio recoupe la carte"
+    )
+
+
+def test_le_plafond_de_largeur_est_coherent_avec_le_rapport_de_forme() -> None:
+    """Les deux plafonds doivent decrire la MEME boite, sinon l'un contredit l'autre."""
+    attendu = round(app.CARTE_HAUTEUR_MAX * app.CARTE_LON_SPAN / app.CARTE_LAT_SPAN)
+
+    assert attendu == app.CARTE_LARGEUR_MAX
+
+
+def test_le_rapport_de_forme_du_css_est_celui_des_axes_de_la_figure() -> None:
+    """Le CSS et la figure doivent parler de la meme carte."""
+    css = app.style_planisphere()
+
+    assert f"aspect-ratio: {app.CARTE_LON_SPAN} / {app.CARTE_LAT_SPAN}" in css
+    assert app.CARTE_LON[1] - app.CARTE_LON[0] == app.CARTE_LON_SPAN
+    assert app.CARTE_LAT[1] - app.CARTE_LAT[0] == app.CARTE_LAT_SPAN
+
+
+def test_la_hauteur_de_la_carte_reste_sous_son_plafond_a_toute_largeur() -> None:
+    """La hauteur etant derivee, on peut la calculer sans navigateur."""
+    for largeur in (390, 768, 1280, 1440, 1920, 2560):
+        effective = min(largeur, app.CARTE_LARGEUR_MAX)
+        hauteur = effective * app.CARTE_LAT_SPAN / app.CARTE_LON_SPAN
+        assert hauteur <= app.CARTE_HAUTEUR_MAX + 1, (largeur, hauteur)

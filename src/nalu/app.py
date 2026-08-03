@@ -39,9 +39,50 @@ CARTE_LAT = (-58.0, 74.0)
 CARTE_LON_SPAN = CARTE_LON[1] - CARTE_LON[0]
 CARTE_LAT_SPAN = CARTE_LAT[1] - CARTE_LAT[0]
 
-# Plafond de hauteur sur grand écran : au-delà, la carte pousse le tableau — qui est
-# le vrai sujet de la page — sous la ligne de flottaison.
+# Plafond sur grand écran : au-delà, la carte pousse le tableau — qui est le vrai
+# sujet de la page — sous la ligne de flottaison.
+#
+# Le plafond porte sur la LARGEUR, jamais sur la hauteur. La hauteur est la dimension
+# DÉRIVÉE (`aspect-ratio` la calcule depuis la largeur) ; la brider crée un conflit que
+# le navigateur tranche en rétrécissant la largeur du bloc, tandis que Plotly continue
+# de dessiner son SVG à la taille du conteneur parent. Résultat mesuré à 1920 px avec
+# un `max-height` : boîte de 1255 px, SVG de 1760 px, et **tout le tiers droit de la
+# carte coupé** — Japon, est de l'Australie, Nouvelle-Zélande, plus deux marqueurs de
+# spots devenus invisibles. Brider la largeur fait rétrécir les deux ensemble.
 CARTE_HAUTEUR_MAX = 460
+CARTE_LARGEUR_MAX = round(CARTE_HAUTEUR_MAX * CARTE_LON_SPAN / CARTE_LAT_SPAN)
+
+
+def style_planisphere() -> str:
+    """Le CSS qui rend la carte responsive. Extrait de `main()` pour être testable.
+
+    Le planisphère verrouille ses proportions (`scaleanchor`) pour ne pas déformer les
+    continents. Python ne connaît pas la largeur de la fenêtre, donc seul le CSS peut
+    faire suivre la hauteur — d'où ce bloc plutôt qu'un paramètre de figure.
+
+    Deux règles, et l'ordre entre elles est ce qui compte :
+
+    1. **Le plafond porte sur la LARGEUR du conteneur.** Plotly dimensionne son SVG
+       sur ce conteneur ; brider la largeur fait donc rétrécir la boîte ET le tracé
+       ensemble.
+    2. **La hauteur est dérivée**, jamais bridée. Un `max-height` sur le même élément
+       qu'un `aspect-ratio` entre en conflit avec lui : le navigateur tranche en
+       rétrécissant la largeur de la boîte, pendant que Plotly continue de dessiner à
+       la taille du parent. Mesuré à 1920 px : boîte de 1255 px, SVG de 1760 px, tiers
+       droit de la carte coupé — Japon, est de l'Australie, Nouvelle-Zélande et deux
+       marqueurs de spots devenus invisibles.
+    """
+    return f"""<style>
+        .st-key-planisphere {{
+            max-width: {CARTE_LARGEUR_MAX}px;
+        }}
+        .st-key-planisphere [data-testid="stPlotlyChart"],
+        .st-key-planisphere .js-plotly-plot,
+        .st-key-planisphere .plot-container {{
+            height: auto !important;
+            aspect-ratio: {CARTE_LON_SPAN} / {CARTE_LAT_SPAN};
+        }}
+        </style>"""
 
 
 def palette() -> dict:
@@ -180,23 +221,7 @@ def main() -> None:
     # est exactement celui qu'ils vérifient.
     classement = classer(tableau, mois, alpha)
 
-    # Le planisphère verrouille ses proportions (`scaleanchor`) pour ne pas déformer
-    # les continents. Une hauteur fixe entre alors en conflit avec cette contrainte :
-    # sur un écran étroit, la carte est bornée par la LARGEUR et ne remplit plus la
-    # hauteur réservée. Mesuré à 390 px : carte de 143 px dans une boîte de 340,
-    # soit ~200 px de vide entre la carte et le tableau. La hauteur doit donc suivre
-    # la largeur, ce que seul le CSS sait faire — Python ne connaît pas la fenêtre.
-    st.html(
-        f"""<style>
-        .st-key-planisphere [data-testid="stPlotlyChart"],
-        .st-key-planisphere .js-plotly-plot,
-        .st-key-planisphere .plot-container {{
-            height: auto !important;
-            aspect-ratio: {CARTE_LON_SPAN} / {CARTE_LAT_SPAN};
-            max-height: {CARTE_HAUTEUR_MAX}px;
-        }}
-        </style>"""
-    )
+    st.html(style_planisphere())
     with st.container(key="planisphere"):
         st.plotly_chart(carte(classement, contour, c), use_container_width=True)
 

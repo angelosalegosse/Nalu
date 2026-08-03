@@ -86,6 +86,25 @@ def style_planisphere() -> str:
 
 
 def palette() -> dict:
+    """La palette du thème RÉELLEMENT appliqué, pas de celui que le navigateur demande.
+
+    `.streamlit/config.toml` épingle `theme.base` et impose un `backgroundColor` : la
+    page est donc peinte en clair pour tout le monde, quelle que soit la préférence
+    système du visiteur. Suivre `st.context.theme`, qui rapporte cette préférence,
+    produisait une figure sombre posée sur une page claire — **un rectangle noir au
+    milieu du dashboard**, vu sur l'instance déployée par un visiteur en mode sombre.
+
+    L'ordre est donc : la base épinglée gagne ; à défaut seulement, on suit le
+    navigateur. Retirer l'épingle de `config.toml` réactive le suivi automatique sans
+    qu'il faille retoucher cette fonction.
+    """
+    try:
+        base = st.get_option("theme.base")
+    except Exception:  # hors runtime Streamlit (tests, notebooks)
+        base = None
+    if base in ("light", "dark"):
+        return SOMBRE if base == "dark" else CLAIR
+
     theme = getattr(getattr(st, "context", None), "theme", None)
     return SOMBRE if getattr(theme, "type", "light") == "dark" else CLAIR
 
